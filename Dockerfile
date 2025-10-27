@@ -23,4 +23,4 @@ RUN pnpm build
 EXPOSE 3000
 
 # 启动应用
-CMD ["pnpm", "start"]
+CMD ["node", ".output/server/index.mjs"]
