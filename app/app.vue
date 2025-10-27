@@ -14,6 +14,16 @@ useHead({
     lang: 'en'
   }
 })
+
+const title = 'S.O.R Music'
+const description = 'a music player'
+
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description
+})
 </script>
 <template>
   <UApp>

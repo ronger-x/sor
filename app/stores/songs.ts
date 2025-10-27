@@ -39,18 +39,7 @@ export const useSongsStore = defineStore('songs', () => {
   const currentSong = ref<Song | null>(null)
 
   async function fetchDefaultSongs() {
-    loading.value = true
-    try {
-      const res = await $fetch('https://music.czx.me:6/songs', {
-        params: { random: true, limit: 50 },
-        headers: { 'X-API-KEY': apiKey }
-      })
-      songs.value = res as Song[]
-    } catch (e) {
-      songs.value = []
-    } finally {
-      loading.value = false
-    }
+    await searchSongs('')
   }
 
   async function searchSongs(q: string) {

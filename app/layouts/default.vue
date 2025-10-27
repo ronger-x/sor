@@ -20,7 +20,3 @@
     </UFooter>
   </UContainer>
 </template>
-<script setup lang="ts">
-import SongSearch from '@/components/SongSearch.vue'
-import PlayerBar from '@/components/PlayerBar.vue'
-</script>
