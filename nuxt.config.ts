@@ -1,18 +1,18 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: "2025-07-15",
+  compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
-  css: ["~/assets/css/main.css"],
+  css: ['~/assets/css/main.css'],
 
   ui: {
-    fonts: false,
+    fonts: false
   },
-  modules: ["@nuxt/ui"],
+  modules: ['@nuxt/ui', '@pinia/nuxt'],
 
   runtimeConfig: {
     public: {
-      musicApiKey: process.env.MUSIC_API_KEY || "",
-    },
-  },
-});
+      musicApiKey: process.env.MUSIC_API_KEY || ''
+    }
+  }
+})

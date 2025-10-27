@@ -1,11 +1,14 @@
 <template>
   <div class="container mx-auto py-8">
-    <div v-if="songs && songs.length" class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+    <div
+      v-if="songsStore.songs && songsStore.songs.length"
+      class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8"
+    >
       <UCard
-        v-for="(song, idx) in songs"
+        v-for="(song, idx) in songsStore.songs"
         :key="song.url"
         class="flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition text-center"
-        @click="$emit('play-song', idx)"
+        @click="playSong(idx)"
       >
         <img
           :src="song.cover"
@@ -20,9 +23,23 @@
 </template>
 
 <script setup lang="ts">
-import type { Song } from '@/types'
-const props = defineProps<{ songs: Song[] }>()
-const emit = defineEmits(['play-song'])
+import { onMounted } from 'vue'
+import { useSongsStore } from '@/stores/songs'
+import { useRuntimeConfig } from '#imports'
+
+const songsStore = useSongsStore()
+const config = useRuntimeConfig()
+
+const playSong = (idx: number) => {
+  // 直接调用 pinia 的 playSong 方法，audioRef 由 PlayerBar 组件管理
+  songsStore.playSong(idx)
+}
+
+onMounted(() => {
+  if (!songsStore.songs.length) {
+    songsStore.fetchDefaultSongs(config.public.musicApiKey)
+  }
+})
 </script>
 
 <style scoped>
