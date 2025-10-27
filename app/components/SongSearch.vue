@@ -11,10 +11,9 @@ import { useSongsStore } from '@/stores/songs'
 import { useRuntimeConfig } from '#imports'
 
 const songsStore = useSongsStore()
-const config = useRuntimeConfig()
 const query = ref('')
 
 const search = async () => {
-  await songsStore.searchSongs(query.value, config.public.musicApiKey)
+  await songsStore.searchSongs(query.value)
 }
 </script>

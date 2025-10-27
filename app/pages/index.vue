@@ -28,7 +28,6 @@ import { useSongsStore } from '@/stores/songs'
 import { useRuntimeConfig } from '#imports'
 
 const songsStore = useSongsStore()
-const config = useRuntimeConfig()
 
 const playSong = (idx: number) => {
   // 直接调用 pinia 的 playSong 方法，audioRef 由 PlayerBar 组件管理
@@ -37,7 +36,7 @@ const playSong = (idx: number) => {
 
 onMounted(() => {
   if (!songsStore.songs.length) {
-    songsStore.fetchDefaultSongs(config.public.musicApiKey)
+    songsStore.fetchDefaultSongs()
   }
 })
 </script>
