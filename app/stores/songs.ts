@@ -13,6 +13,24 @@ export const useSongsStore = defineStore('songs', () => {
   const parsedLyrics = ref<{ time: number; text: string }[]>([])
   const lyricsModal = ref(false)
   const currentLyricLine = ref(0)
+  // 歌词高亮同步定时器
+  let lyricTimer: number | null = null
+  function startLyricSync(audioRef?: HTMLAudioElement | null) {
+    if (!audioRef) return
+    stopLyricSync()
+    lyricTimer = window.setInterval(() => {
+      const timeMs = (audioRef.currentTime || 0) * 1000
+      const idx = parsedLyrics.value.findIndex(l => l.time > timeMs)
+      currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : Math.max(0, idx - 1)
+    }, 200)
+  }
+
+  function stopLyricSync() {
+    if (lyricTimer) {
+      clearInterval(lyricTimer)
+      lyricTimer = null
+    }
+  }
 
   const config = useRuntimeConfig()
   const apiKey = config.public.musicApiKey
@@ -85,11 +103,15 @@ export const useSongsStore = defineStore('songs', () => {
     try {
       isPlaying.value = true
       await audio.play()
+      // 歌词高亮同步定时器启动
+      startLyricSync(audio)
     } catch (err) {
       isPlaying.value = false
       // eslint-disable-next-line no-console
       console.warn('audio play failed', err)
     }
+    // 切歌时自动更新歌词和高亮行
+    await showCurrentLyrics()
   }
 
   async function togglePlay(audioRef?: HTMLAudioElement | null) {
@@ -97,10 +119,12 @@ export const useSongsStore = defineStore('songs', () => {
     if (isPlaying.value) {
       audioRef.pause()
       isPlaying.value = false
+      stopLyricSync()
     } else {
       try {
         await audioRef.play()
         isPlaying.value = true
+        startLyricSync(audioRef)
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn('audio play failed', err)
@@ -179,6 +203,8 @@ export const useSongsStore = defineStore('songs', () => {
     playSong,
     togglePlay,
     showCurrentLyrics,
-    seekTo
+    seekTo,
+    startLyricSync,
+    stopLyricSync
   }
 })
