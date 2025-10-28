@@ -15,14 +15,14 @@
       </div>
       <div v-if="$device.isDesktop" :class="centerControlClasses" style="z-index: 20">
         <UButton
-          icon="i-heroicons-backward"
+          icon="i-lucide-chevrons-left"
           variant="ghost"
           @click.stop="prevSong"
           :disabled="!hasPrev"
         />
         <UButton :icon="playPauseIcon" variant="solid" color="primary" @click.stop="togglePlay" />
         <UButton
-          icon="i-heroicons-forward"
+          icon="i-lucide-chevrons-right"
           variant="ghost"
           @click.stop="nextSong"
           :disabled="!hasNext"
@@ -39,12 +39,12 @@
             />
           </template>
         </UPopover>
-        <UButton icon="i-heroicons-musical-note" variant="ghost" @click.stop="showLyrics" />
+        <UButton icon="i-lucide-music-4" variant="ghost" @click.stop="showLyrics" />
       </div>
       <!-- Mobile compact controls: show on non-desktop devices -->
       <div v-if="!$device.isDesktop" class="flex items-center gap-2 ml-2 z-20">
         <UButton
-          icon="i-heroicons-backward"
+          icon="i-lucide-chevrons-left"
           variant="ghost"
           size="sm"
           @click.stop="prevSong"
@@ -58,7 +58,7 @@
           @click.stop="togglePlay"
         />
         <UButton
-          icon="i-heroicons-forward"
+          icon="i-lucide-chevrons-right"
           variant="ghost"
           size="sm"
           @click.stop="nextSong"
@@ -77,7 +77,7 @@
           </template>
         </UPopover>
         <UButton
-          icon="i-heroicons-musical-note"
+          icon="i-lucide-music-4"
           variant="ghost"
           size="sm"
           @click.stop="showLyrics"
@@ -118,7 +118,7 @@ const hasNext = computed(
   () => currentIndex.value < songsStore.songs.length - 1 && currentIndex.value !== -1
 )
 const playPauseIcon = computed(() =>
-  songsStore.isPlaying ? 'i-heroicons-pause' : 'i-heroicons-play'
+  songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'
 )
 
 function playSong(idx: number) {
@@ -196,7 +196,6 @@ const centerControlClasses = computed(() => [
   'top-1/2',
   '-translate-x-1/2',
   '-translate-y-1/2',
-  'hidden',
   'md:flex',
   'items-center',
   'gap-2',
