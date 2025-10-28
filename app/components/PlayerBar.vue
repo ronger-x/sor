@@ -42,7 +42,7 @@
         <UButton icon="i-lucide-music-4" variant="ghost" @click.stop="showLyrics" />
       </div>
       <!-- Mobile compact controls: show on non-desktop devices -->
-      <div v-if="!$device.isDesktop" class="flex items-center gap-2 ml-2 z-20">
+      <div v-else class="flex items-center gap-2 ml-2 z-20">
         <UButton
           icon="i-lucide-chevrons-left"
           variant="ghost"
@@ -200,7 +200,6 @@ const centerControlClasses = computed(() => [
   'items-center',
   'gap-2',
   'px-2',
-  'rounded',
-  'shadow'
+  'rounded'
 ])
 </script>
