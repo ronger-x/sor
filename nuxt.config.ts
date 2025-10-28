@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   ui: {
     fonts: false
   },
-  modules: ['@nuxt/ui', '@pinia/nuxt'],
+  modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/device'],
 
   runtimeConfig: {
     public: {

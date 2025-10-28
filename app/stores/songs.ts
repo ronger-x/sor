@@ -13,6 +13,9 @@ export const useSongsStore = defineStore('songs', () => {
   const parsedLyrics = ref<{ time: number; text: string }[]>([])
   const lyricsModal = ref(false)
   const currentLyricLine = ref(0)
+  // volume control
+  const volume = ref(1) // range 0.0 - 1.0
+  const muted = ref(false)
   // 歌词高亮同步定时器
   let lyricTimer: number | null = null
   function startLyricSync(audioRef?: HTMLAudioElement | null) {
@@ -39,24 +42,16 @@ export const useSongsStore = defineStore('songs', () => {
   const currentSong = ref<Song | null>(null)
 
   async function fetchDefaultSongs() {
-    await searchSongs('')
+    await searchSongs('', true)
   }
 
-  async function searchSongs(q: string) {
+  async function searchSongs(q: string, random?: boolean) {
     loading.value = true
     try {
-      let res
-      if (!q) {
-        res = await $fetch('https://music.czx.me:6/songs', {
-          params: { random: true, limit: 50 },
-          headers: { 'X-API-KEY': apiKey }
-        })
-      } else {
-        res = await $fetch('https://music.czx.me:6/songs', {
-          params: { q, limit: 50 },
-          headers: { 'X-API-KEY': apiKey }
-        })
-      }
+      let res = await $fetch('https://music.czx.me:6/songs', {
+        params: { q, random, limit: 50 },
+        headers: { 'X-API-KEY': apiKey }
+      })
       // 不重置 currentSong，保持当前播放
       songs.value = res as Song[]
     } catch (e) {
@@ -72,6 +67,11 @@ export const useSongsStore = defineStore('songs', () => {
     await nextTick()
     const audio = audioRef
     if (!audio) return
+    try {
+      // apply persisted volume/mute to the audio element
+      audio.volume = volume.value
+      audio.muted = muted.value
+    } catch {}
     try {
       audio.pause()
     } catch {}
@@ -105,6 +105,10 @@ export const useSongsStore = defineStore('songs', () => {
 
   async function togglePlay(audioRef?: HTMLAudioElement | null) {
     if (!audioRef) return
+    try {
+      audioRef.volume = volume.value
+      audioRef.muted = muted.value
+    } catch {}
     if (isPlaying.value) {
       audioRef.pause()
       isPlaying.value = false
@@ -119,6 +123,29 @@ export const useSongsStore = defineStore('songs', () => {
         console.warn('audio play failed', err)
         isPlaying.value = false
       }
+    }
+  }
+
+  function setVolume(v: number, audioRef?: HTMLAudioElement | null) {
+    const nv = Math.max(0, Math.min(1, v))
+    volume.value = nv
+    // if volume zero, consider muted
+    if (nv === 0) muted.value = true
+    else muted.value = false
+    if (audioRef) {
+      try {
+        audioRef.volume = nv
+        audioRef.muted = muted.value
+      } catch {}
+    }
+  }
+
+  function toggleMute(audioRef?: HTMLAudioElement | null) {
+    muted.value = !muted.value
+    if (audioRef) {
+      try {
+        audioRef.muted = muted.value
+      } catch {}
     }
   }
 
@@ -194,6 +221,11 @@ export const useSongsStore = defineStore('songs', () => {
     showCurrentLyrics,
     seekTo,
     startLyricSync,
-    stopLyricSync
+    stopLyricSync,
+    // volume controls
+    volume,
+    muted,
+    setVolume,
+    toggleMute
   }
 })

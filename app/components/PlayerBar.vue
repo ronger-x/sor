@@ -13,7 +13,7 @@
         <div class="font-bold truncate">{{ currentSong?.name }}</div>
         <div class="text-sm truncate">{{ currentSong?.artist }}</div>
       </div>
-      <div :class="centerControlClasses" style="z-index: 20">
+      <div v-if="$device.isDesktop" :class="centerControlClasses" style="z-index: 20">
         <UButton
           icon="i-heroicons-backward"
           variant="ghost"
@@ -27,10 +27,22 @@
           @click.stop="nextSong"
           :disabled="!hasNext"
         />
+        <!-- Volume button: placed before lyrics -->
+        <UPopover v-model:open="showVolume" placement="top-end">
+          <UButton :icon="volumeIcon" variant="ghost" />
+          <template #content>
+            <USlider
+              orientation="vertical"
+              :model-value="Math.round((volume ?? 1) * 100)"
+              @update:model-value="onSliderChange"
+              class="h-48"
+            />
+          </template>
+        </UPopover>
         <UButton icon="i-heroicons-musical-note" variant="ghost" @click.stop="showLyrics" />
       </div>
-      <!-- Mobile compact controls: show on small screens -->
-      <div class="flex md:hidden items-center gap-2 ml-2 z-20">
+      <!-- Mobile compact controls: show on non-desktop devices -->
+      <div v-if="!$device.isDesktop" class="flex items-center gap-2 ml-2 z-20">
         <UButton
           icon="i-heroicons-backward"
           variant="ghost"
@@ -52,6 +64,18 @@
           @click.stop="nextSong"
           :disabled="!hasNext"
         />
+        <!-- Mobile: volume button before lyrics -->
+        <UPopover v-model:open="showVolume" placement="top-end">
+          <UButton :icon="volumeIcon" variant="ghost" size="sm" />
+          <template #content>
+            <USlider
+              orientation="vertical"
+              :model-value="Math.round((volume ?? 1) * 100)"
+              @update:model-value="onSliderChange"
+              class="h-32"
+            />
+          </template>
+        </UPopover>
         <UButton
           icon="i-heroicons-musical-note"
           variant="ghost"
@@ -78,6 +102,7 @@ import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
 const audioRef = ref<HTMLAudioElement | null>(null)
+const showVolume = ref(false)
 // provide audioRef so other components (LyricViewer) can inject it
 provide('audioRef', audioRef)
 
@@ -99,15 +124,19 @@ const playPauseIcon = computed(() =>
 function playSong(idx: number) {
   songsStore.playSong(idx, audioRef.value)
 }
+
 function prevSong() {
   if (hasPrev.value) playSong(currentIndex.value - 1)
 }
+
 function nextSong() {
   if (hasNext.value) playSong(currentIndex.value + 1)
 }
+
 function togglePlay() {
   songsStore.togglePlay(audioRef.value)
 }
+
 function showLyrics() {
   if (showLyricPage.value) {
     router.push('/')
@@ -116,11 +145,28 @@ function showLyrics() {
     router.push('/lyric')
   }
 }
+
 function onAudioPlay() {
   songsStore.isPlaying = true
 }
+
 function onAudioPause() {
   songsStore.isPlaying = false
+}
+
+// volume bindings
+const volume = computed(() => songsStore.volume)
+const muted = computed(() => songsStore.muted)
+const volumeIcon = computed(() => {
+  if (muted.value || (volume.value ?? 1) === 0) return 'i-lucide-volume-off'
+  if ((volume.value ?? 1) < 0.5) return 'i-lucide-volume-1'
+  return 'i-lucide-volume-2'
+})
+
+function onSliderChange(val: number | undefined) {
+  if (val === undefined) return
+  const v = Math.max(0, Math.min(100, Number(val))) / 100
+  songsStore.setVolume(v, audioRef.value)
 }
 
 // 监听 currentSong 变化，自动播放
