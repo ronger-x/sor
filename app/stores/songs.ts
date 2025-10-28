@@ -35,8 +35,7 @@ export const useSongsStore = defineStore('songs', () => {
     }
   }
 
-  const config = useRuntimeConfig()
-  const apiKey = config.public.musicApiKey
+  // client should not access the API key directly; the server endpoints will proxy requests
 
   // 直接存储当前播放歌曲，避免 songs 变化影响播放
   const currentSong = ref<Song | null>(null)
@@ -48,10 +47,10 @@ export const useSongsStore = defineStore('songs', () => {
   async function searchSongs(q: string, random?: boolean) {
     loading.value = true
     try {
-      let res = await $fetch('https://music.czx.me:6/songs', {
-        params: { q, random, limit: 50 },
-        headers: { 'X-API-KEY': apiKey }
-      })
+      const params: Record<string, any> = { q, random, limit: 50 }
+      // remove undefined params
+      Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
+      const res = await $fetch('/api/songs', { params })
       // 不重置 currentSong，保持当前播放
       songs.value = res as Song[]
     } catch (e) {
@@ -157,9 +156,10 @@ export const useSongsStore = defineStore('songs', () => {
     parsedLyrics.value = []
     currentLyricLine.value = 0
     try {
-      const lrc = await $fetch(currentSong.value.lrc, {
-        headers: { 'X-API-KEY': apiKey }
-      })
+      const params: Record<string, any> = { url: currentSong.value.lrc }
+      Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
+      // request LRC via server proxy to keep API key on server
+      const lrc = await $fetch('/api/lyrics', { params })
       lyrics.value = lrc as string
       parsedLyrics.value = parseLRC(lyrics.value)
     } catch (e) {

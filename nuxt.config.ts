@@ -11,10 +11,11 @@ export default defineNuxtConfig({
     fonts: false
   },
   modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/device'],
-
   runtimeConfig: {
+    // server-only keys (not exposed to the client)
+    musicApiKey: process.env.NUXT_PUBLIC_MUSIC_API_KEY || '',
     public: {
-      musicApiKey: process.env.MUSIC_API_KEY || ''
+      // public runtime config goes here
     }
   }
 })
