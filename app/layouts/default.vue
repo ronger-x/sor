@@ -1,16 +1,17 @@
 <template>
   <UContainer class="min-h-screen flex flex-col">
-    <UHeader class="sticky top-0 z-20 backdrop-blur">
-      <template #left>
+    <UHeader class="sticky top-0 z-20 backdrop-blur" :toggle="false">
+      <template #title>
         <span class="text-xl font-bold tracking-wide text-primary">S.O.R Music</span>
       </template>
+      <SongSearch />
       <template #right>
-        <SongSearch />
+        <UColorModeButton />
       </template>
     </UHeader>
 
     <UMain
-      class="flex-1 flex flex-col items-center justify-start w-full max-w-5xl mx-auto px-2 py-6"
+      class="flex-1 flex flex-col items-center justify-start w-full max-w-5xl mx-auto px-2 py-6 md:pb-24 pb-20"
     >
       <slot />
     </UMain>
@@ -20,3 +21,5 @@
     </UFooter>
   </UContainer>
 </template>
+<script setup lang="ts">
+</script>

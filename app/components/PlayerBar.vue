@@ -1,7 +1,14 @@
 <template>
   <div :class="['card-surface', 'border-theme', ...containerClasses]">
-    <div class="relative flex items-center w-full" style="min-height: 56px">
-      <img :src="currentSong?.cover" class="w-12 h-12 rounded mr-4" :alt="currentSong?.name" />
+    <div
+      class="relative flex items-center w-full"
+      :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
+    >
+      <img
+        :src="currentSong?.cover"
+        class="w-10 h-10 md:w-12 md:h-12 rounded mr-4"
+        :alt="currentSong?.name"
+      />
       <div class="flex-1 min-w-0">
         <div class="font-bold truncate">{{ currentSong?.name }}</div>
         <div class="text-sm truncate">{{ currentSong?.artist }}</div>
@@ -21,6 +28,36 @@
           :disabled="!hasNext"
         />
         <UButton icon="i-heroicons-musical-note" variant="ghost" @click.stop="showLyrics" />
+      </div>
+      <!-- Mobile compact controls: show on small screens -->
+      <div class="flex md:hidden items-center gap-2 ml-2 z-20">
+        <UButton
+          icon="i-heroicons-backward"
+          variant="ghost"
+          size="sm"
+          @click.stop="prevSong"
+          :disabled="!hasPrev"
+        />
+        <UButton
+          :icon="playPauseIcon"
+          variant="solid"
+          color="primary"
+          size="sm"
+          @click.stop="togglePlay"
+        />
+        <UButton
+          icon="i-heroicons-forward"
+          variant="ghost"
+          size="sm"
+          @click.stop="nextSong"
+          :disabled="!hasNext"
+        />
+        <UButton
+          icon="i-heroicons-musical-note"
+          variant="ghost"
+          size="sm"
+          @click.stop="showLyrics"
+        />
       </div>
       <audio
         ref="audioRef"
@@ -113,7 +150,8 @@ const centerControlClasses = computed(() => [
   'top-1/2',
   '-translate-x-1/2',
   '-translate-y-1/2',
-  'flex',
+  'hidden',
+  'md:flex',
   'items-center',
   'gap-2',
   'px-2',

@@ -18,10 +18,6 @@
         />
       </template>
     </UInput>
-    <div class="flex items-center gap-2">
-      <UButton @click="search" color="primary">搜索</UButton>
-      <UColorModeSelect />
-    </div>
   </div>
 </template>
 
