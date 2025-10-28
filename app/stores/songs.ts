@@ -14,7 +14,7 @@ export const useSongsStore = defineStore('songs', () => {
   const lyricsModal = ref(false)
   const currentLyricLine = ref(0)
   // volume control
-  const volume = ref(1) // range 0.0 - 1.0
+  const volume = ref(0.5) // range 0.0 - 1.0
   const muted = ref(false)
   // 歌词高亮同步定时器
   let lyricTimer: number | null = null
