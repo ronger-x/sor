@@ -4,8 +4,9 @@ services:
     image: sor:latest
     container_name: sor
     ports:
-      - 3300:3000
+      - "3000:3000"
     environment:
       # 如有需要可添加环境变量，例如：
-      # NUXT_MUSIC_API_KEY: your-music-api-key
+     NUXT_MUSIC_API_URL: your-music-api-url
+     NUXT_MUSIC_API_KEY: your-music-api-key
     restart: unless-stopped

@@ -13,6 +13,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/device'],
   runtimeConfig: {
     // server-only keys (not exposed to the client)
+    musicApiUrl: process.env.NUXT_MUSIC_API_URL || '',
     musicApiKey: process.env.NUXT_MUSIC_API_KEY || '',
     public: {
       // public runtime config goes here
