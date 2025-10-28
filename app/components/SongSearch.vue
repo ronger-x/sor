@@ -3,7 +3,7 @@
     <UInput
       v-model="query"
       placeholder="搜索歌曲名..."
-      class="flex-1"
+      :class="['flex-1']"
       @keyup.enter="search"
       :ui="{ trailing: 'pe-1' }"
     >
@@ -18,14 +18,16 @@
         />
       </template>
     </UInput>
-    <UButton @click="search" color="primary">搜索</UButton>
+    <div class="flex items-center gap-2">
+      <UButton @click="search" color="primary">搜索</UButton>
+      <UColorModeSelect />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useSongsStore } from '@/stores/songs'
-import { useRuntimeConfig, useRouter } from '#imports'
 
 const songsStore = useSongsStore()
 const query = ref('')

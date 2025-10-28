@@ -12,8 +12,8 @@
       <div
         v-for="(line, i) in lyrics"
         :key="i"
-        :ref="(el: HTMLElement | null) => (lineRefs[i] = el)"
-        :class="['lyric-line py-1 transition-all', { 'lyric-active': i === currentLine }]"
+        :ref="(el) => (lineRefs[i] = el as HTMLElement | null)"
+        :class="['lyric-line py-1 transition-all', { 'text-primary lyric-active': i === currentLine }]"
         @click="onLineClick(line)"
         role="button"
         tabindex="0"
@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
+import type { Ref } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 import { useRouter } from 'vue-router'
 
@@ -118,13 +119,11 @@ function onLineClick(line: { time: number; text: string }) {
 }
 
 .lyric-line {
-  color: #444;
   font-size: 1rem;
   text-align: center;
 }
 
 .lyric-active {
-  color: #0ea5a4;
   font-weight: 700;
   font-size: 1.15rem;
 }
@@ -154,15 +153,5 @@ function onLineClick(line: { time: number; text: string }) {
 .custom-scrollbar:focus::-webkit-scrollbar,
 .custom-scrollbar:focus-within::-webkit-scrollbar {
   opacity: 1;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 4px;
-}
-
-.custom-scrollbar {
-  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
-  scrollbar-width: thin;
 }
 </style>

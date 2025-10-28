@@ -1,8 +1,8 @@
 <template>
-  <UContainer class="min-h-screen flex flex-col bg-gray-50">
-    <UHeader class="sticky top-0 z-20 border-b bg-white/80 backdrop-blur">
+  <UContainer class="min-h-screen flex flex-col">
+    <UHeader class="sticky top-0 z-20 backdrop-blur">
       <template #left>
-        <span class="text-xl font-bold tracking-wide">S.O.R Music</span>
+        <span class="text-xl font-bold tracking-wide text-primary">S.O.R Music</span>
       </template>
       <template #right>
         <SongSearch />
@@ -15,7 +15,7 @@
       <slot />
     </UMain>
 
-    <UFooter class="w-full bg-white border-t shadow z-30 px-0 py-0 sticky bottom-0">
+    <UFooter class="w-full shadow z-30 px-0 py-0 sticky bottom-0">
       <PlayerBar />
     </UFooter>
   </UContainer>

@@ -1,17 +1,12 @@
 <template>
-  <div
-    class="fixed bottom-0 left-0 right-0 w-full bg-white border-t z-50 shadow px-4 py-2 min-h-14"
-  >
+  <div :class="['card-surface', 'border-theme', ...containerClasses]">
     <div class="relative flex items-center w-full" style="min-height: 56px">
       <img :src="currentSong?.cover" class="w-12 h-12 rounded mr-4" :alt="currentSong?.name" />
       <div class="flex-1 min-w-0">
         <div class="font-bold truncate">{{ currentSong?.name }}</div>
-        <div class="text-gray-500 text-sm truncate">{{ currentSong?.artist }}</div>
+        <div class="text-sm truncate">{{ currentSong?.artist }}</div>
       </div>
-      <div
-        class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 bg-white px-2 rounded shadow"
-        style="z-index: 20"
-      >
+      <div :class="centerControlClasses" style="z-index: 20">
         <UButton
           icon="i-heroicons-backward"
           variant="ghost"
@@ -40,12 +35,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
 const audioRef = ref<HTMLAudioElement | null>(null)
+// provide audioRef so other components (LyricViewer) can inject it
+provide('audioRef', audioRef)
 
 const router = useRouter()
 const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
@@ -95,4 +92,32 @@ watch(currentSong, (song, prev) => {
     songsStore.playSong(currentIndex.value, audioRef.value)
   }
 })
+
+const containerClasses = computed(() => [
+  'fixed',
+  'bottom-0',
+  'left-0',
+  'right-0',
+  'w-full',
+  'z-50',
+  'shadow',
+  'px-4',
+  'py-2',
+  'min-h-14',
+  'backdrop-blur'
+])
+
+const centerControlClasses = computed(() => [
+  'absolute',
+  'left-1/2',
+  'top-1/2',
+  '-translate-x-1/2',
+  '-translate-y-1/2',
+  'flex',
+  'items-center',
+  'gap-2',
+  'px-2',
+  'rounded',
+  'shadow'
+])
 </script>

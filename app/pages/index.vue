@@ -1,29 +1,45 @@
 <template>
-  <div class="container mx-auto py-8">
-    <div
-      v-if="songsStore.songs && songsStore.songs.length"
-      class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8"
-    >
-      <UCard
-        v-for="(song, idx) in songsStore.songs"
-        :key="song.url"
-        class="flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition text-center"
-        @click="playSong(idx)"
-      >
-        <img
-          :src="song.cover"
-          :alt="song.name"
-          class="w-32 h-32 object-cover rounded mb-4 mx-auto"
-        />
-        <div class="font-bold text-lg w-full">{{ song.name }}</div>
-        <div class="text-gray-500 mb-2 w-full">{{ song.artist }}</div>
-      </UCard>
+  <div class="container mx-auto">
+    <div v-if="songsStore.songs && songsStore.songs.length" class="relative">
+      <!-- Refresh button positioned at the top-right of the songs list -->
+      <div class="absolute top-0 right-0 z-10">
+        <UButton icon="i-lucide-refresh-cw" subtle @click="songsStore.fetchDefaultSongs"
+          >换一批</UButton
+        >
+      </div>
+
+      <!-- Grid of song cards — add top padding so the button doesn't overlap content -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12">
+        <UCard
+          v-for="(song, idx) in songsStore.songs"
+          :key="song.url"
+          :class="['card-surface', 'border-theme', cardClasses]"
+          @click="playSong(idx)"
+        >
+          <img
+            :src="song.cover"
+            :alt="song.name"
+            class="w-32 h-32 object-cover rounded mb-4 mx-auto"
+          />
+          <div class="font-bold text-lg w-full">{{ song.name }}</div>
+          <div>{{ song.artist }}</div>
+        </UCard>
+      </div>
+    </div>
+    <div v-else>
+      <UEmpty icon="i-lucide-music" title="没有找到相关歌曲">
+        <template #actions>
+          <UButton icon="i-lucide-refresh-cw" subtle @click="songsStore.fetchDefaultSongs"
+            >刷新歌曲列表</UButton
+          >
+        </template>
+      </UEmpty>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
@@ -32,6 +48,18 @@ const playSong = (idx: number) => {
   // 直接调用 pinia 的 playSong 方法，audioRef 由 PlayerBar 组件管理
   songsStore.playSong(idx)
 }
+
+const cardClasses = computed(() =>
+  [
+    'flex',
+    'flex-col',
+    'items-center',
+    'justify-center',
+    'cursor-pointer',
+    'transition',
+    'text-center'
+  ].join(' ')
+)
 
 onMounted(() => {
   if (!songsStore.songs.length) {
