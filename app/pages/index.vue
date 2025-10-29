@@ -7,7 +7,13 @@
           >换一批</UButton
         >
       </div>
-
+      <!-- 加载状态 -->
+      <div v-if="songsLoading" class="flex items-center justify-center h-full">
+        <div class="text-center">
+          <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl mb-2"/>
+          <p class="text-sm text-gray-500">加载歌曲中...</p>
+        </div>
+      </div>
       <!-- Grid of song cards — add top padding so the button doesn't overlap content -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12">
         <UCard
@@ -43,6 +49,8 @@ import { onMounted, computed } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
+
+const songsLoading = computed(() => songsStore.loading)
 
 const playSong = (idx: number) => {
   // 直接调用 pinia 的 playSong 方法，audioRef 由 PlayerBar 组件管理
