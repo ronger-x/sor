@@ -21,6 +21,9 @@ export const useSongsStore = defineStore('songs', () => {
   const volume = ref(0.5) // range 0.0 - 1.0
   const muted = ref(false)
 
+  // ⭐ 全局唯一的 audioRef
+  const audioRef = ref<HTMLAudioElement | null>(null)
+
   // 歌词高亮同步定时器
   let lyricTimer: number | null = null
 
@@ -53,17 +56,36 @@ export const useSongsStore = defineStore('songs', () => {
     return idx < songs.value.length - 1
   })
 
-  function startLyricSync(audioRef?: HTMLAudioElement | null) {
-    if (!audioRef) return
+  // ⭐ 初始化 audio 元素（在组件中调用）
+  function initAudio(audio: HTMLAudioElement) {
+    audioRef.value = audio
+
+    // 设置初始音量和静音状态
+    try {
+      audio.volume = volume.value
+      audio.muted = muted.value
+    } catch (e) {
+      console.warn('Failed to set initial audio properties:', e)
+    }
+  }
+
+  // ⭐ 获取 audio 元素的辅助函数
+  function getAudio(): HTMLAudioElement | null {
+    return audioRef.value
+  }
+
+  function startLyricSync() {
+    const audio = getAudio()
+    if (!audio) return
     stopLyricSync()
     lyricTimer = window.setInterval(() => {
-      const timeMs = (audioRef.currentTime || 0) * 1000
+      const timeMs = (audio.currentTime || 0) * 1000
       const idx = parsedLyrics.value.findIndex(l => l.time > timeMs)
       currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : Math.max(0, idx - 1)
 
       // 同步更新 currentTime
-      currentTime.value = audioRef.currentTime || 0
-    }, 100) // 提高更新频率到 100ms，让进度条更流畅
+      currentTime.value = audio.currentTime || 0
+    }, 100)
   }
 
   function stopLyricSync() {
@@ -80,11 +102,9 @@ export const useSongsStore = defineStore('songs', () => {
   async function searchSongs(q: string, random?: boolean) {
     loading.value = true
     try {
-      const params: Record<string, any> = { q, random, limit: 50 }
-      // remove undefined params
+      const params: Record<string, any> = {q, random, limit: 50}
       Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
-      const res = await $fetch('/api/songs', { params })
-      // 不重置 currentSong，保持当前播放
+      const res = await $fetch('/api/songs', {params})
       songs.value = res as Song[]
     } catch (e) {
       songs.value = []
@@ -94,10 +114,16 @@ export const useSongsStore = defineStore('songs', () => {
     }
   }
 
-  async function playSong(idx: number, audioRef?: HTMLAudioElement | null) {
+  async function playSong(idx: number) {
     // 处理索引越界
     if (idx < 0 || idx >= songs.value.length) {
       console.warn('Invalid song index:', idx)
+      return
+    }
+
+    const audio = getAudio()
+    if (!audio) {
+      console.warn('Audio element not initialized')
       return
     }
 
@@ -109,11 +135,8 @@ export const useSongsStore = defineStore('songs', () => {
     duration.value = 0
 
     await nextTick()
-    const audio = audioRef
-    if (!audio) return
 
     try {
-      // apply persisted volume/mute to the audio element
       audio.volume = volume.value
       audio.muted = muted.value
     } catch (e) {
@@ -147,78 +170,74 @@ export const useSongsStore = defineStore('songs', () => {
     try {
       isPlaying.value = true
       await audio.play()
-      // 获取歌曲时长
       duration.value = audio.duration || 0
-      // 歌词高亮同步定时器启动
-      startLyricSync(audio)
+      startLyricSync()
     } catch (err) {
       isPlaying.value = false
       console.warn('audio play failed', err)
     }
 
-    // 切歌时自动更新歌词和高亮行
     await showCurrentLyrics()
   }
 
   // 播放上一首
-  async function playPrevSong(audioRef?: HTMLAudioElement | null) {
+  async function playPrevSong() {
     const idx = currentSongIndex.value
 
     if (idx === -1) {
-      // 当前歌曲不在列表中，播放第一首
       if (songs.value.length > 0) {
-        await playSong(0, audioRef)
+        await playSong(0)
       }
     } else if (idx > 0) {
-      // 播放上一首
-      await playSong(idx - 1, audioRef)
+      await playSong(idx - 1)
     }
   }
 
   // 播放下一首
-  async function playNextSong(audioRef?: HTMLAudioElement | null) {
+  async function playNextSong() {
     const idx = currentSongIndex.value
 
     if (idx === -1) {
-      // 当前歌曲不在列表中，播放第一首
       if (songs.value.length > 0) {
-        await playSong(0, audioRef)
+        await playSong(0)
       }
     } else if (idx < songs.value.length - 1) {
-      // 播放下一首
-      await playSong(idx + 1, audioRef)
+      await playSong(idx + 1)
     }
   }
 
-  async function togglePlay(audioRef?: HTMLAudioElement | null) {
-    if (!audioRef) return
+  async function togglePlay() {
+    const audio = getAudio()
+    if (!audio) {
+      console.warn('Audio element not initialized')
+      return
+    }
 
     // 如果没有当前歌曲，尝试播放第一首
     if (!currentSong.value && songs.value.length > 0) {
-      await playSong(0, audioRef)
+      await playSong(0)
       return
     }
 
     try {
-      audioRef.volume = volume.value
-      audioRef.muted = muted.value
+      audio.volume = volume.value
+      audio.muted = muted.value
     } catch (e) {
       console.warn('Failed to set audio properties:', e)
     }
 
     if (isPlaying.value) {
-      audioRef.pause()
+      audio.pause()
       isPlaying.value = false
       stopLyricSync()
     } else {
       try {
-        await audioRef.play()
+        await audio.play()
         isPlaying.value = true
-        // 获取歌曲时长（如果还没有）
-        if (!duration.value && audioRef.duration) {
-          duration.value = audioRef.duration
+        if (!duration.value && audio.duration) {
+          duration.value = audio.duration
         }
-        startLyricSync(audioRef)
+        startLyricSync()
       } catch (err) {
         console.warn('audio play failed', err)
         isPlaying.value = false
@@ -226,31 +245,33 @@ export const useSongsStore = defineStore('songs', () => {
     }
   }
 
-  function setVolume(v: number, audioRef?: HTMLAudioElement | null) {
+  function setVolume(v: number) {
+    const audio = getAudio()
     const nv = Math.max(0, Math.min(1, v))
     volume.value = nv
-    // if volume zero, consider muted
+
     if (nv === 0) {
       muted.value = true
     } else {
       muted.value = false
     }
 
-    if (audioRef) {
+    if (audio) {
       try {
-        audioRef.volume = nv
-        audioRef.muted = muted.value
+        audio.volume = nv
+        audio.muted = muted.value
       } catch (e) {
         console.warn('Failed to set volume:', e)
       }
     }
   }
 
-  function toggleMute(audioRef?: HTMLAudioElement | null) {
+  function toggleMute() {
+    const audio = getAudio()
     muted.value = !muted.value
-    if (audioRef) {
+    if (audio) {
       try {
-        audioRef.muted = muted.value
+        audio.muted = muted.value
       } catch (e) {
         console.warn('Failed to toggle mute:', e)
       }
@@ -266,11 +287,12 @@ export const useSongsStore = defineStore('songs', () => {
   }
 
   // 设置播放进度
-  function setProgress(timeSeconds: number, audioRef?: HTMLAudioElement | null) {
-    if (!audioRef) return
+  function setProgress(timeSeconds: number) {
+    const audio = getAudio()
+    if (!audio) return
 
     try {
-      audioRef.currentTime = timeSeconds
+      audio.currentTime = timeSeconds
       currentTime.value = timeSeconds
 
       // 更新歌词高亮
@@ -291,10 +313,9 @@ export const useSongsStore = defineStore('songs', () => {
     currentLyricLine.value = 0
 
     try {
-      const params: Record<string, any> = { url: currentSong.value.lrc }
+      const params: Record<string, any> = {url: currentSong.value.lrc}
       Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
-      // request LRC via server proxy to keep API key on server
-      const lrc = await $fetch('/api/lyrics', { params })
+      const lrc = await $fetch('/api/lyrics', {params})
       lyrics.value = lrc as string
       parsedLyrics.value = parseLRC(lyrics.value)
     } catch (e) {
@@ -320,25 +341,25 @@ export const useSongsStore = defineStore('songs', () => {
         const sec = parseInt(match[2] ?? '0')
         const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0
         const time = min * 60 * 1000 + sec * 1000 + ms
-        result.push({ time, text })
+        result.push({time, text})
       }
     }
 
     return result.sort((a, b) => a.time - b.time)
   }
 
-  function seekTo(timeMs: number, audioRef?: HTMLAudioElement | null) {
-    if (!audioRef) return
+  function seekTo(timeMs: number) {
+    const audio = getAudio()
+    if (!audio) return
 
     try {
-      audioRef.currentTime = timeMs / 1000
+      audio.currentTime = timeMs / 1000
       currentTime.value = timeMs / 1000
-      audioRef.play().catch((e) => {
+      audio.play().catch((e) => {
         console.warn('Failed to play after seek:', e)
       })
       isPlaying.value = true
 
-      // 歌词高亮行同步
       const idx = parsedLyrics.value.findIndex((l: { time: number }) => l.time >= timeMs)
       currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : idx
     } catch (e) {
@@ -349,6 +370,15 @@ export const useSongsStore = defineStore('songs', () => {
   // 重置播放器状态
   function reset() {
     stopLyricSync()
+    const audio = getAudio()
+    if (audio) {
+      try {
+        audio.pause()
+        audio.src = ''
+      } catch (e) {
+        console.warn('Failed to reset audio:', e)
+      }
+    }
     currentSong.value = null
     currentIndex.value = -1
     isPlaying.value = false
@@ -357,6 +387,12 @@ export const useSongsStore = defineStore('songs', () => {
     lyrics.value = ''
     parsedLyrics.value = []
     currentLyricLine.value = 0
+  }
+
+  // ⭐ 清理资源（在应用卸载时调用）
+  function dispose() {
+    reset()
+    audioRef.value = null
   }
 
   return {
@@ -379,6 +415,11 @@ export const useSongsStore = defineStore('songs', () => {
     hasPrev,
     hasNext,
 
+    // Audio management
+    audioRef,
+    initAudio,
+    getAudio,
+
     // Methods
     fetchDefaultSongs,
     searchSongs,
@@ -393,6 +434,7 @@ export const useSongsStore = defineStore('songs', () => {
     updateProgress,
     setProgress,
     reset,
+    dispose,
 
     // volume controls
     volume,

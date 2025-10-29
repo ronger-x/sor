@@ -1,4 +1,14 @@
 <script lang="ts" setup>
+import { onBeforeUnmount } from 'vue'
+import { useSongsStore } from '@/stores/songs'
+
+const songsStore = useSongsStore()
+
+// 应用卸载时清理所有资源
+onBeforeUnmount(() => {
+  songsStore.dispose()
+})
+
 useHead({
   meta: [
     { charset: 'utf-8' },

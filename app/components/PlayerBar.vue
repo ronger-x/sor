@@ -20,7 +20,7 @@
               <USlider
                 orientation="vertical"
                 :model-value="Math.round((volume ?? 1) * 100)"
-                @update:model-value="onSliderChange"
+                @update:model-value="onVolumeChange"
                 class="h-48"
               />
             </template>
@@ -49,7 +49,7 @@
               <USlider
                 orientation="vertical"
                 :model-value="Math.round((volume ?? 1) * 100)"
-                @update:model-value="onSliderChange"
+                @update:model-value="onVolumeChange"
                 class="h-32"
               />
             </template>
@@ -106,33 +106,34 @@
       </div>
     </div>
 
+    <!-- ⭐ Audio 元素：只负责渲染，初始化后交给 store 管理 -->
     <audio
-      ref="audioRef"
+      ref="audioElement"
       :src="currentSong?.url"
-      @ended="nextSong"
+      @ended="onAudioEnded"
       @play="onAudioPlay"
       @pause="onAudioPause"
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onLoadedMetadata"
+      @error="onAudioError"
       style="display: none"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, provide, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
-const audioRef = ref<HTMLAudioElement | null>(null)
+const router = useRouter()
+
+// ⭐ 本地 ref，只用于获取 DOM 元素
+const audioElement = ref<HTMLAudioElement | null>(null)
 const showVolume = ref(false)
 const isSeeking = ref(false)
 
-// provide audioRef so other components (LyricViewer) can inject it
-provide('audioRef', audioRef)
-
-const router = useRouter()
 const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
 
 // 使用 store 中的状态
@@ -141,10 +142,35 @@ const currentTime = computed(() => songsStore.currentTime)
 const duration = computed(() => songsStore.duration)
 const hasPrev = computed(() => songsStore.hasPrev)
 const hasNext = computed(() => songsStore.hasNext)
+const volume = computed(() => songsStore.volume)
+const muted = computed(() => songsStore.muted)
 
 const playPauseIcon = computed(() =>
   songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'
 )
+
+const volumeIcon = computed(() => {
+  if (muted.value || (volume.value ?? 1) === 0) return 'i-lucide-volume-off'
+  if ((volume.value ?? 1) < 0.5) return 'i-lucide-volume-1'
+  return 'i-lucide-volume-2'
+})
+
+// ⭐ 组件挂载时初始化 audio 元素到 store
+onMounted(() => {
+  if (audioElement.value) {
+    songsStore.initAudio(audioElement.value)
+    console.log('Audio element initialized in store')
+  } else {
+    console.warn('Failed to initialize audio element')
+  }
+})
+
+// ⭐ 组件卸载时清理资源
+onBeforeUnmount(() => {
+  songsStore.stopLyricSync()
+  // 注意：不要调用 dispose()，因为可能有其他组件还在使用
+  // dispose 应该在应用级别（app.vue）调用
+})
 
 // 格式化时间 (秒 -> mm:ss)
 function formatTime(seconds: number): string {
@@ -154,55 +180,17 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-// 音频时间更新
+// ⭐ Audio 事件处理器
 function onTimeUpdate() {
-  if (!audioRef.value || isSeeking.value) return
-  songsStore.updateProgress(
-    audioRef.value.currentTime,
-    audioRef.value.duration
-  )
+  const audio = songsStore.getAudio()
+  if (!audio || isSeeking.value) return
+  songsStore.updateProgress(audio.currentTime, audio.duration)
 }
 
-// 音频元数据加载完成
 function onLoadedMetadata() {
-  if (!audioRef.value) return
-  songsStore.updateProgress(
-    audioRef.value.currentTime,
-    audioRef.value.duration
-  )
-}
-
-// 进度条拖动
-function onProgressChange(value: number | undefined) {
-  if (value === undefined || !audioRef.value) return
-  isSeeking.value = true
-  songsStore.setProgress(value, audioRef.value)
-  // 延迟重置 seeking 状态，避免跳动
-  setTimeout(() => {
-    isSeeking.value = false
-  }, 100)
-}
-
-// 使用 store 的方法
-function prevSong() {
-  songsStore.playPrevSong(audioRef.value)
-}
-
-function nextSong() {
-  songsStore.playNextSong(audioRef.value)
-}
-
-function togglePlay() {
-  songsStore.togglePlay(audioRef.value)
-}
-
-function showLyrics() {
-  if (showLyricPage.value) {
-    router.push('/')
-  } else {
-    songsStore.showCurrentLyrics()
-    router.push('/lyric')
-  }
+  const audio = songsStore.getAudio()
+  if (!audio) return
+  songsStore.updateProgress(audio.currentTime, audio.duration)
 }
 
 function onAudioPlay() {
@@ -213,38 +201,53 @@ function onAudioPause() {
   songsStore.isPlaying = false
 }
 
-// volume bindings
-const volume = computed(() => songsStore.volume)
-const muted = computed(() => songsStore.muted)
-const volumeIcon = computed(() => {
-  if (muted.value || (volume.value ?? 1) === 0) return 'i-lucide-volume-off'
-  if ((volume.value ?? 1) < 0.5) return 'i-lucide-volume-1'
-  return 'i-lucide-volume-2'
-})
-
-function onSliderChange(val: number | undefined) {
-  if (val === undefined) return
-  const v = Math.max(0, Math.min(100, Number(val))) / 100
-  songsStore.setVolume(v, audioRef.value)
+function onAudioEnded() {
+  // 播放结束，自动播放下一首
+  songsStore.playNextSong()
 }
 
-// 监听 currentSong 变化，自动播放
-watch(currentSong, async (song, prev) => {
-  if (song && song !== prev && audioRef.value) {
-    const idx = songsStore.currentSongIndex
-    if (idx !== -1) {
-      await songsStore.playSong(idx, audioRef.value)
-    }
-  }
-})
+function onAudioError(event: Event) {
+  console.error('Audio error:', event)
+  songsStore.isPlaying = false
+}
 
-// 组件卸载时清理
-onBeforeUnmount(() => {
-  songsStore.stopLyricSync()
-  if (audioRef.value) {
-    audioRef.value.pause()
+// ⭐ 用户交互处理器
+function onProgressChange(value: number | undefined) {
+  if (value === undefined) return
+  isSeeking.value = true
+  songsStore.setProgress(value)
+  // 延迟重置 seeking 状态，避免跳动
+  setTimeout(() => {
+    isSeeking.value = false
+  }, 100)
+}
+
+function onVolumeChange(val: number | undefined) {
+  if (val === undefined) return
+  const v = Math.max(0, Math.min(100, Number(val))) / 100
+  songsStore.setVolume(v)
+}
+
+function prevSong() {
+  songsStore.playPrevSong()
+}
+
+function nextSong() {
+  songsStore.playNextSong()
+}
+
+function togglePlay() {
+  songsStore.togglePlay()
+}
+
+function showLyrics() {
+  if (showLyricPage.value) {
+    router.push('/')
+  } else {
+    songsStore.showCurrentLyrics()
+    router.push('/lyric')
   }
-})
+}
 
 const containerClasses = computed(() => [
   'fixed',
