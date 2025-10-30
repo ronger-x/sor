@@ -7,6 +7,13 @@
       <SongSearch />
       <template #right>
         <UColorModeButton />
+        <UButton
+          icon="i-lucide-github"
+          color="neutral"
+          variant="ghost"
+          to="https://github.com/ronger-x/sor"
+          target="_blank"
+        />
       </template>
     </UHeader>
 
