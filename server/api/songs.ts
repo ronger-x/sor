@@ -30,12 +30,10 @@ export default eventHandler(async (event: H3Event) => {
     if (q[k] !== undefined && q[k] !== null) url.searchParams.set(k, String(q[k]))
   })
 
-  // 获取客户端 IP
-  const forwardedFor = event.node.req.headers['x-forwarded-for']
-  const remoteAddress = event.node.req.socket?.remoteAddress
-  const clientIp = Array.isArray(forwardedFor)
-    ? forwardedFor[0]
-    : forwardedFor || remoteAddress || ''
+  // ✅ 使用 H3 内置方法获取客户端 IP
+  const clientIp = getRequestIP(event, {
+    xForwardedFor: true  // 启用 X-Forwarded-For 支持
+  }) || 'unknown'
 
   // 获取 User-Agent
   const userAgent = event.node.req.headers['user-agent'] || ''
@@ -45,7 +43,7 @@ export default eventHandler(async (event: H3Event) => {
       'X-API-KEY': apiKey,
       'User-Agent': userAgent
     }
-    if (clientIp) headers['X-Forwarded-For'] = String(clientIp)
+    if (clientIp !== 'unknown') headers['X-Forwarded-For'] = clientIp
     // 可以在这里添加自定义指纹 header，如 headers['X-Client-Fingerprint'] = ...
     return await $fetch(url.toString(), {
       headers
