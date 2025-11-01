@@ -4,8 +4,8 @@
       <template #title>
         <span class="text-xl font-bold tracking-wide text-primary">S.O.R Music</span>
       </template>
-      <SongSearch />
       <template #right>
+        <SongSearch />
         <UColorModeButton />
         <UButton
           icon="i-lucide-github"
@@ -28,5 +28,4 @@
     </UFooter>
   </UContainer>
 </template>
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>

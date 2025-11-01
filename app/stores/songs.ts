@@ -7,7 +7,8 @@ export const useSongsStore = defineStore('songs', () => {
   // 播放列表（当前使用 songs 作为播放列表，可选扩展多个）
   const playlists = ref<{ id: string; name: string; items: Song[] }[]>([])
   const currentPlaylistId = ref<string | null>(null)
-  const loading = ref(false)
+  const loading = ref(false) // 全局加载状态（废弃，保留向后兼容）
+  const homeLoading = ref(false) // 首页专用加载状态
   // Deprecated: currentIndex (use currentSongIndex). Kept for backward compatibility.
   const currentIndex = ref(-1)
   const isPlaying = ref(false)
@@ -161,28 +162,33 @@ export const useSongsStore = defineStore('songs', () => {
   }
 
   async function fetchDefaultSongs() {
-    await searchSongs('', true)
-    // 初始加载时创建默认播放列表
-    if (songs.value.length > 0 && !currentPlaylistId.value) {
-      setPlaylist('default', '默认播放列表', songs.value)
+    homeLoading.value = true
+    try {
+      const result = await searchSongs('', true)
+      songs.value = result
+      // 初始加载时创建默认播放列表
+      if (songs.value.length > 0 && !currentPlaylistId.value) {
+        setPlaylist('default', '默认播放列表', songs.value)
+      }
+      await assignInitialRandomIfNeeded()
+    } finally {
+      homeLoading.value = false
     }
-    await assignInitialRandomIfNeeded()
   }
 
   async function searchSongs(q: string, random?: boolean) {
-    loading.value = true
+    let result: Song[] = []
     try {
       const params: Record<string, any> = { q, random, limit: 50 }
       Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
       const res = await $fetch('/api/songs', { params })
-      songs.value = res as Song[]
+      result = res as Song[]
       // assignInitialRandomIfNeeded 仅在 fetchDefaultSongs 中调用
     } catch (e) {
-      songs.value = []
+      result = []
       console.error('Failed to fetch songs:', e)
-    } finally {
-      loading.value = false
     }
+    return result
   }
 
   // Guard: 当前播放任务的 token，避免竞争条件 (快速切歌)
@@ -802,11 +808,6 @@ export const useSongsStore = defineStore('songs', () => {
     // 从播放列表中移除
     currentPlaylist.value.items.splice(index, 1)
 
-    // 同步更新 songs（如果当前播放列表是默认播放列表）
-    if (currentPlaylistId.value === 'default') {
-      songs.value = currentPlaylist.value.items.slice()
-    }
-
     if (!currentPlaylist.value.items.length) {
       reset()
       return
@@ -832,17 +833,13 @@ export const useSongsStore = defineStore('songs', () => {
     // 清空当前播放列表
     currentPlaylist.value.items = []
 
-    // 同步更新 songs（如果当前播放列表是默认播放列表）
-    if (currentPlaylistId.value === 'default') {
-      songs.value = []
-    }
-
     reset()
   }
 
   return {
     songs,
-    loading,
+    loading, // 废弃，保留向后兼容
+    homeLoading, // 首页专用加载状态
     currentIndex,
     isPlaying,
     currentSong,

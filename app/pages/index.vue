@@ -48,7 +48,7 @@ import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
 
-const songsLoading = computed(() => songsStore.loading)
+const songsLoading = computed(() => songsStore.homeLoading)
 
 const playSong = (idx: number) => {
   // 首页点击歌曲时，将当前搜索结果设置为播放列表
@@ -59,8 +59,14 @@ const playSong = (idx: number) => {
   songsStore.playSong(idx)
 }
 
-const reloadSongs = () => {
-  songsStore.searchSongs('', true)
+const reloadSongs = async () => {
+  songsStore.homeLoading = true
+  try {
+    const searchSongs = await songsStore.searchSongs('', true)
+    songsStore.songs = searchSongs
+  } finally {
+    songsStore.homeLoading = false
+  }
 }
 
 const cardClasses = computed(() =>
