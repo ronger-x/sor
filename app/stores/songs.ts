@@ -1,10 +1,14 @@
 import { defineStore } from 'pinia'
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import type { Song } from '@/types'
 
 export const useSongsStore = defineStore('songs', () => {
   const songs = ref<Song[]>([])
+  // 播放列表（当前使用 songs 作为播放列表，可选扩展多个）
+  const playlists = ref<{ id: string; name: string; items: Song[] }[]>([])
+  const currentPlaylistId = ref<string | null>(null)
   const loading = ref(false)
+  // Deprecated: currentIndex (use currentSongIndex). Kept for backward compatibility.
   const currentIndex = ref(-1)
   const isPlaying = ref(false)
   const lyrics = ref('')
@@ -12,20 +16,34 @@ export const useSongsStore = defineStore('songs', () => {
   const parsedLyrics = ref<{ time: number; text: string }[]>([])
   const lyricsModal = ref(false)
   const currentLyricLine = ref(0)
+  // LRC 缓存 (key = lrc url)
+  const lrcCache = new Map<string, { raw: string; parsed: { time: number; text: string }[] }>()
 
   // 播放进度相关状态
   const currentTime = ref(0)
   const duration = ref(0)
+  // 缓冲相关
+  const bufferedPercent = ref(0)
+  const bufferedRanges = ref<{ start: number; end: number }[]>([])
 
   // volume control
   const volume = ref(0.5) // range 0.0 - 1.0
+  const previousVolume = ref(0.5) // remember last non-zero volume for mute toggle restore
   const muted = ref(false)
 
   // ⭐ 全局唯一的 audioRef
   const audioRef = ref<HTMLAudioElement | null>(null)
 
-  // 歌词高亮同步定时器
-  let lyricTimer: number | null = null
+  // 歌词高亮同步 (requestAnimationFrame 比 setInterval 更平滑)
+  let lyricRaf: number | null = null
+  const lyricSyncIntervalMs = 100 // 控制歌词高亮刷新节流
+  let lastLyricSyncTs = 0
+  const isUserSeeking = ref(false) // 拖动进度条时暂停 rAF 更新
+
+  // 播放模式: 'sequential' | 'repeat-one' | 'shuffle'
+  const playMode = ref<'sequential' | 'repeat-one' | 'shuffle'>('sequential')
+  const shuffledOrder = ref<number[]>([]) // 保存随机播放顺序
+  let shuffleIndex = 0
 
   // 直接存储当前播放歌曲，避免 songs 变化影响播放
   const currentSong = ref<Song | null>(null)
@@ -41,6 +59,34 @@ export const useSongsStore = defineStore('songs', () => {
     if (!currentSong.value) return -1
     return songs.value.findIndex(s => s.url === currentSong.value?.url)
   })
+
+  function ensureShuffle() {
+    if (playMode.value !== 'shuffle') return
+    const curIdx = currentSongIndex.value
+    const needRebuild =
+      shuffledOrder.value.length !== songs.value.length ||
+      !shuffledOrder.value.every(i => i < songs.value.length)
+    if (!needRebuild) return
+    const prevPos = Math.min(Math.max(shuffleIndex, 0), Math.max(songs.value.length - 1, 0))
+    if (curIdx < 0) {
+      shuffledOrder.value = songs.value.map((_, i) => i).sort(() => Math.random() - 0.5)
+      shuffleIndex = 0
+      return
+    }
+    const others = songs.value.map((_, i) => i).filter(i => i !== curIdx)
+    for (let i = others.length - 1; i > 0; i--) {
+      const r = Math.floor(Math.random() * (i + 1))
+      if (r < 0 || r >= others.length) continue
+      const tmp = others[i]!
+      const rv = others[r]!
+      others[i] = rv
+      others[r] = tmp
+    }
+    const insertPos = Math.min(prevPos, others.length)
+    others.splice(insertPos, 0, curIdx)
+    shuffledOrder.value = others
+    shuffleIndex = insertPos
+  }
 
   // Computed: 是否有上一首
   const hasPrev = computed(() => {
@@ -78,34 +124,43 @@ export const useSongsStore = defineStore('songs', () => {
     const audio = getAudio()
     if (!audio) return
     stopLyricSync()
-    lyricTimer = window.setInterval(() => {
-      const timeMs = (audio.currentTime || 0) * 1000
-      const idx = parsedLyrics.value.findIndex(l => l.time > timeMs)
-      currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : Math.max(0, idx - 1)
-
-      // 同步更新 currentTime
-      currentTime.value = audio.currentTime || 0
-    }, 100)
+    const sync = (ts: number) => {
+      if (!audio) return
+      if (
+        !isUserSeeking.value &&
+        (!lastLyricSyncTs || ts - lastLyricSyncTs >= lyricSyncIntervalMs)
+      ) {
+        const timeMs = (audio.currentTime || 0) * 1000
+        currentLyricLine.value = findLyricLine(timeMs)
+        currentTime.value = audio.currentTime || 0
+        lastLyricSyncTs = ts
+      }
+      lyricRaf = requestAnimationFrame(sync)
+    }
+    lyricRaf = requestAnimationFrame(sync)
   }
 
   function stopLyricSync() {
-    if (lyricTimer) {
-      clearInterval(lyricTimer)
-      lyricTimer = null
+    if (lyricRaf) {
+      cancelAnimationFrame(lyricRaf)
+      lyricRaf = null
     }
+    lastLyricSyncTs = 0
   }
 
   async function fetchDefaultSongs() {
     await searchSongs('', true)
+    await assignInitialRandomIfNeeded()
   }
 
   async function searchSongs(q: string, random?: boolean) {
     loading.value = true
     try {
-      const params: Record<string, any> = {q, random, limit: 50}
+      const params: Record<string, any> = { q, random, limit: 50 }
       Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
-      const res = await $fetch('/api/songs', {params})
+      const res = await $fetch('/api/songs', { params })
       songs.value = res as Song[]
+      // assignInitialRandomIfNeeded 仅在 fetchDefaultSongs 中调用
     } catch (e) {
       songs.value = []
       console.error('Failed to fetch songs:', e)
@@ -113,6 +168,9 @@ export const useSongsStore = defineStore('songs', () => {
       loading.value = false
     }
   }
+
+  // Guard: 当前播放任务的 token，避免竞争条件 (快速切歌)
+  let playTokenCounter = 0
 
   async function playSong(idx: number) {
     // 处理索引越界
@@ -127,7 +185,7 @@ export const useSongsStore = defineStore('songs', () => {
       return
     }
 
-    currentIndex.value = idx
+    currentIndex.value = idx // deprecated
     currentSong.value = songs.value[idx] || null
 
     // 重置播放进度
@@ -153,56 +211,95 @@ export const useSongsStore = defineStore('songs', () => {
       audio.src = currentSong.value.url
     }
 
-    await new Promise<void>(resolve => {
-      if (audio.readyState >= 3) return resolve()
-      const onCanPlay = () => {
-        audio.removeEventListener('canplay', onCanPlay)
-        resolve()
-      }
-      audio.addEventListener('canplay', onCanPlay)
-      try {
-        audio.load()
-      } catch (e) {
-        console.warn('Failed to load audio:', e)
-      }
-    })
+    const token = ++playTokenCounter
 
+    // 尝试加载并播放
+    const ensureCanPlay = async () => {
+      if (audio.readyState >= 3) return true
+      await new Promise<void>(resolve => {
+        const onCanPlay = () => {
+          audio.removeEventListener('canplay', onCanPlay)
+          resolve()
+        }
+        audio.addEventListener('canplay', onCanPlay)
+        try {
+          audio.load()
+        } catch (e) {
+          console.warn('Failed to load audio:', e)
+        }
+      })
+      return true
+    }
+
+    await ensureCanPlay()
+    if (token !== playTokenCounter) {
+      // 已有新的播放请求，放弃当前
+      return
+    }
     try {
+      const playResult = audio.play()
       isPlaying.value = true
-      await audio.play()
-      duration.value = audio.duration || 0
+      await playResult
+      duration.value = isFinite(audio.duration) ? audio.duration : 0
       startLyricSync()
+      updateMediaSession()
     } catch (err) {
       isPlaying.value = false
       console.warn('audio play failed', err)
     }
 
     await showCurrentLyrics()
+    preloadNextSong()
   }
 
   // 播放上一首
   async function playPrevSong() {
-    const idx = currentSongIndex.value
-
-    if (idx === -1) {
-      if (songs.value.length > 0) {
-        await playSong(0)
+    if (!songs.value.length) return
+    if (playMode.value === 'repeat-one' && currentSongIndex.value >= 0) {
+      await playSong(currentSongIndex.value)
+      return
+    }
+    if (playMode.value === 'shuffle') {
+      ensureShuffle()
+      shuffleIndex = (shuffleIndex - 1 + shuffledOrder.value.length) % shuffledOrder.value.length
+      const nextIdx = shuffledOrder.value[shuffleIndex]
+      if (typeof nextIdx === 'number') {
+        await playSong(nextIdx)
       }
-    } else if (idx > 0) {
+      return
+    }
+    const idx = currentSongIndex.value
+    if (idx <= 0) {
+      await playSong(0)
+    } else {
       await playSong(idx - 1)
     }
   }
 
   // 播放下一首
   async function playNextSong() {
-    const idx = currentSongIndex.value
-
-    if (idx === -1) {
-      if (songs.value.length > 0) {
-        await playSong(0)
+    if (!songs.value.length) return
+    if (playMode.value === 'repeat-one' && currentSongIndex.value >= 0) {
+      await playSong(currentSongIndex.value)
+      return
+    }
+    if (playMode.value === 'shuffle') {
+      ensureShuffle()
+      shuffleIndex = (shuffleIndex + 1) % shuffledOrder.value.length
+      const nextIdx = shuffledOrder.value[shuffleIndex]
+      if (typeof nextIdx === 'number') {
+        await playSong(nextIdx)
       }
+      return
+    }
+    const idx = currentSongIndex.value
+    if (idx === -1) {
+      await playSong(0)
     } else if (idx < songs.value.length - 1) {
       await playSong(idx + 1)
+    } else {
+      // 到末尾，循环到第一首
+      await playSong(0)
     }
   }
 
@@ -227,17 +324,24 @@ export const useSongsStore = defineStore('songs', () => {
     }
 
     if (isPlaying.value) {
-      audio.pause()
+      try {
+        audio.pause()
+      } catch (e) {
+        console.warn('pause failed', e)
+      }
       isPlaying.value = false
       stopLyricSync()
+      updateMediaSessionPlaybackState()
     } else {
       try {
-        await audio.play()
+        const playResult = audio.play()
         isPlaying.value = true
-        if (!duration.value && audio.duration) {
+        await playResult
+        if (!duration.value && isFinite(audio.duration)) {
           duration.value = audio.duration
         }
         startLyricSync()
+        updateMediaSessionPlaybackState()
       } catch (err) {
         console.warn('audio play failed', err)
         isPlaying.value = false
@@ -249,13 +353,10 @@ export const useSongsStore = defineStore('songs', () => {
     const audio = getAudio()
     const nv = Math.max(0, Math.min(1, v))
     volume.value = nv
-
-    if (nv === 0) {
-      muted.value = true
-    } else {
+    if (nv > 0 && muted.value) {
       muted.value = false
     }
-
+    if (nv > 0) previousVolume.value = nv
     if (audio) {
       try {
         audio.volume = nv
@@ -268,10 +369,21 @@ export const useSongsStore = defineStore('songs', () => {
 
   function toggleMute() {
     const audio = getAudio()
-    muted.value = !muted.value
+    if (muted.value) {
+      // 取消静音，恢复之前的音量
+      muted.value = false
+      if (volume.value === 0) {
+        volume.value = previousVolume.value || 0.5
+      }
+    } else {
+      // 设置静音，记录当前音量
+      if (volume.value > 0) previousVolume.value = volume.value
+      muted.value = true
+    }
     if (audio) {
       try {
         audio.muted = muted.value
+        if (!muted.value) audio.volume = volume.value
       } catch (e) {
         console.warn('Failed to toggle mute:', e)
       }
@@ -297,8 +409,8 @@ export const useSongsStore = defineStore('songs', () => {
 
       // 更新歌词高亮
       const timeMs = timeSeconds * 1000
-      const idx = parsedLyrics.value.findIndex(l => l.time > timeMs)
-      currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : Math.max(0, idx - 1)
+      currentLyricLine.value = findLyricLine(timeMs)
+      updateMediaSessionPosition()
     } catch (e) {
       console.warn('Failed to set progress:', e)
     }
@@ -313,11 +425,20 @@ export const useSongsStore = defineStore('songs', () => {
     currentLyricLine.value = 0
 
     try {
-      const params: Record<string, any> = {url: currentSong.value.lrc}
+      const params: Record<string, any> = { url: currentSong.value.lrc }
       Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
-      const lrc = await $fetch('/api/lyrics', {params})
-      lyrics.value = lrc as string
-      parsedLyrics.value = parseLRC(lyrics.value)
+      const lrcUrl = currentSong.value.lrc
+      if (lrcUrl && lrcCache.has(lrcUrl)) {
+        const cached = lrcCache.get(lrcUrl)!
+        lyrics.value = cached.raw
+        parsedLyrics.value = cached.parsed
+      } else {
+        const lrc = await $fetch('/api/lyrics', { params })
+        lyrics.value = lrc as string
+        const parsed = parseLRC(lyrics.value)
+        parsedLyrics.value = parsed
+        if (lrcUrl) lrcCache.set(lrcUrl, { raw: lyrics.value, parsed })
+      }
     } catch (e) {
       lyrics.value = '歌词加载失败'
       console.error('Failed to load lyrics:', e)
@@ -341,11 +462,35 @@ export const useSongsStore = defineStore('songs', () => {
         const sec = parseInt(match[2] ?? '0')
         const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0
         const time = min * 60 * 1000 + sec * 1000 + ms
-        result.push({time, text})
+        result.push({ time, text })
       }
     }
 
     return result.sort((a, b) => a.time - b.time)
+  }
+
+  // 二分查找定位歌词行（给定毫秒）
+  function findLyricLine(timeMs: number) {
+    const arr = parsedLyrics.value
+    const len = arr.length
+    if (!len) return 0
+    let lo = 0
+    let hi = len - 1
+    const first = arr[0]
+    const last = arr[hi]
+    if (!first || !last) return 0
+    if (timeMs < first.time) return 0
+    if (timeMs >= last.time) return hi
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      const midItem = arr[mid]
+      if (!midItem) break
+      const t = midItem.time
+      if (t === timeMs) return mid
+      if (t < timeMs) lo = mid + 1
+      else hi = mid - 1
+    }
+    return Math.max(0, lo - 1)
   }
 
   function seekTo(timeMs: number) {
@@ -355,15 +500,61 @@ export const useSongsStore = defineStore('songs', () => {
     try {
       audio.currentTime = timeMs / 1000
       currentTime.value = timeMs / 1000
-      audio.play().catch((e) => {
+      audio.play().catch(e => {
         console.warn('Failed to play after seek:', e)
       })
       isPlaying.value = true
 
-      const idx = parsedLyrics.value.findIndex((l: { time: number }) => l.time >= timeMs)
-      currentLyricLine.value = idx === -1 ? parsedLyrics.value.length - 1 : idx
+      currentLyricLine.value = findLyricLine(timeMs)
+      updateMediaSessionPosition()
     } catch (e) {
       console.warn('seek failed', e)
+    }
+  }
+
+  function updateBuffered() {
+    const audio = getAudio()
+    if (!audio) return
+    try {
+      const ranges: { start: number; end: number }[] = []
+      const br = audio.buffered
+      for (let i = 0; i < br.length; i++) {
+        ranges.push({ start: br.start(i), end: br.end(i) })
+      }
+      bufferedRanges.value = ranges
+      if (ranges.length && duration.value) {
+        const lastRange = ranges[ranges.length - 1]
+        if (lastRange) {
+          bufferedPercent.value = Math.min(1, lastRange.end / duration.value)
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function preloadNextSong() {
+    const idx = currentSongIndex.value
+    if (idx === -1) return
+    const next = songs.value[idx + 1]
+    if (!next) return
+    if (next.url) {
+      if (!document.head.querySelector(`link[rel=preload][as=audio][href="${next.url}"]`)) {
+        const link = document.createElement('link')
+        link.rel = 'preload'
+        link.as = 'audio'
+        link.href = next.url
+        document.head.appendChild(link)
+      }
+    }
+    if (next.lrc && !lrcCache.has(next.lrc)) {
+      $fetch('/api/lyrics', { params: { url: next.lrc } })
+        .then((lrc: any) => {
+          const raw = String(lrc || '')
+          const parsed = parseLRC(raw)
+          lrcCache.set(next.lrc!, { raw, parsed })
+        })
+        .catch(() => {})
     }
   }
 
@@ -387,12 +578,227 @@ export const useSongsStore = defineStore('songs', () => {
     lyrics.value = ''
     parsedLyrics.value = []
     currentLyricLine.value = 0
+    bufferedPercent.value = 0
+    bufferedRanges.value = []
+    updateMediaSessionPlaybackState(true)
+    shuffledOrder.value = []
+    shuffleIndex = 0
   }
 
   // ⭐ 清理资源（在应用卸载时调用）
   function dispose() {
     reset()
     audioRef.value = null
+  }
+
+  // Watchers: 确保外部修改 volume/muted 同步到 audio
+  watch(volume, v => {
+    const audio = getAudio()
+    if (!audio) return
+    try {
+      audio.volume = v
+    } catch (e) {
+      /* noop */
+    }
+  })
+  watch(muted, m => {
+    const audio = getAudio()
+    if (!audio) return
+    try {
+      audio.muted = m
+    } catch (e) {
+      /* noop */
+    }
+  })
+
+  // 补充: 初始化后监听缓冲事件
+  function attachBufferListeners() {
+    const audio = getAudio()
+    if (!audio) return
+    audio.addEventListener('progress', updateBuffered)
+    audio.addEventListener('loadedmetadata', updateBuffered)
+    audio.addEventListener('canplay', updateBuffered)
+  }
+  function detachBufferListeners() {
+    const audio = getAudio()
+    if (!audio) return
+    audio.removeEventListener('progress', updateBuffered)
+    audio.removeEventListener('loadedmetadata', updateBuffered)
+    audio.removeEventListener('canplay', updateBuffered)
+  }
+
+  // 修改 initAudio 附加缓冲监听
+  const _origInit = initAudio
+  function enhancedInitAudio(audio: HTMLAudioElement) {
+    _origInit(audio)
+    attachBufferListeners()
+    setupMediaSessionHandlers()
+  }
+
+  // Media Session API 集成
+  function setupMediaSessionHandlers() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    try {
+      navigator.mediaSession.setActionHandler('play', async () => {
+        if (!isPlaying.value) await togglePlay()
+      })
+      navigator.mediaSession.setActionHandler('pause', async () => {
+        if (isPlaying.value) await togglePlay()
+      })
+      navigator.mediaSession.setActionHandler('nexttrack', () => playNextSong())
+      navigator.mediaSession.setActionHandler('previoustrack', () => playPrevSong())
+      navigator.mediaSession.setActionHandler('seekto', (details: any) => {
+        if (details?.seekTime != null) {
+          seekTo(details.seekTime * 1000)
+        }
+      })
+    } catch (e) {
+      // 某些浏览器可能不支持所有 handler
+      console.warn('MediaSession handlers failed:', e)
+    }
+  }
+
+  function updateMediaSession() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    const song = currentSong.value
+    if (!song) return
+    try {
+      const meta: any = {
+        title: song.name,
+        artist: song.artist,
+        artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/png' }] : []
+      }
+      if ('album' in song && (song as any).album) {
+        meta.album = (song as any).album
+      }
+      navigator.mediaSession.metadata = new MediaMetadata(meta)
+      updateMediaSessionPlaybackState()
+      updateMediaSessionPosition()
+    } catch (e) {
+      console.warn('Failed to set media session metadata:', e)
+    }
+  }
+
+  function updateMediaSessionPlaybackState(forceStopped = false) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    try {
+      navigator.mediaSession.playbackState = forceStopped
+        ? 'none'
+        : isPlaying.value
+        ? 'playing'
+        : 'paused'
+    } catch (e) {
+      /* noop */
+    }
+  }
+
+  function updateMediaSessionPosition() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    const audio = getAudio()
+    if (!audio || typeof (navigator.mediaSession as any).setPositionState !== 'function') return
+    try {
+      ;(navigator.mediaSession as any).setPositionState({
+        duration: isFinite(audio.duration) ? audio.duration : duration.value || 0,
+        playbackRate: audio.playbackRate || 1,
+        position: audio.currentTime || currentTime.value
+      })
+    } catch (e) {
+      /* noop */
+    }
+  }
+
+  // 播放列表管理
+  function setPlaylist(id: string, name: string, items: Song[]) {
+    const existing = playlists.value.find(p => p.id === id)
+    if (existing) {
+      existing.items = items.slice()
+      existing.name = name
+    } else {
+      playlists.value.push({ id, name, items: items.slice() })
+    }
+    currentPlaylistId.value = id
+    songs.value = items.slice()
+    shuffledOrder.value = [] // 重置随机顺序
+  }
+
+  function addToPlaylist(id: string, items: Song[]) {
+    const pl = playlists.value.find(p => p.id === id)
+    if (!pl) return
+    pl.items.push(...items)
+    if (currentPlaylistId.value === id) {
+      songs.value = pl.items.slice()
+      shuffledOrder.value = []
+    }
+  }
+
+  function setPlayMode(mode: 'sequential' | 'repeat-one' | 'shuffle') {
+    playMode.value = mode
+    if (mode === 'shuffle') {
+      shuffledOrder.value = []
+      ensureShuffle()
+    }
+  }
+
+  // 用户拖动进度时暂停歌词同步
+  function beginSeek() {
+    isUserSeeking.value = true
+  }
+  function endSeek() {
+    isUserSeeking.value = false
+  }
+
+  // 初次加载后随机挑一首但不播放
+  let initialRandomAssigned = false
+  async function assignInitialRandomIfNeeded() {
+    if (initialRandomAssigned) return
+    if (!songs.value.length) return
+    const idx = Math.floor(Math.random() * songs.value.length)
+    const picked = songs.value[idx]
+    if (!picked) return
+    currentSong.value = picked
+    currentIndex.value = idx
+    // 不播放，只设置 metadata
+    updateMediaSession()
+    initialRandomAssigned = true
+    // 可选：预加载歌词但不解析 (保持快速)
+    try {
+      if (!currentSong.value) return
+      const lrcUrl = currentSong.value.lrc
+      if (lrcUrl && !lrcCache.has(lrcUrl)) {
+        const lrc = await $fetch('/api/lyrics', { params: { url: lrcUrl } })
+        const raw = String(lrc || '')
+        const parsed = parseLRC(raw)
+        lrcCache.set(lrcUrl, { raw, parsed })
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function removeSong(index: number) {
+    if (index < 0 || index >= songs.value.length) return
+    const wasCurrent = currentSongIndex.value === index
+    songs.value.splice(index, 1)
+    if (!songs.value.length) {
+      reset()
+      return
+    }
+    shuffledOrder.value = []
+    ensureShuffle()
+    if (wasCurrent) {
+      const newIndex = Math.min(index, songs.value.length - 1)
+      const replacement = songs.value[newIndex]
+      if (replacement) {
+        currentSong.value = replacement
+        currentIndex.value = newIndex
+        updateMediaSession()
+      }
+    }
+  }
+
+  function clearSongs() {
+    songs.value = []
+    reset()
   }
 
   return {
@@ -408,6 +814,7 @@ export const useSongsStore = defineStore('songs', () => {
     parsedLyrics,
     lyricsModal,
     currentLyricLine,
+    playMode,
 
     // Computed
     isCurrentSongInList,
@@ -417,7 +824,7 @@ export const useSongsStore = defineStore('songs', () => {
 
     // Audio management
     audioRef,
-    initAudio,
+    initAudio: enhancedInitAudio,
     getAudio,
 
     // Methods
@@ -435,11 +842,25 @@ export const useSongsStore = defineStore('songs', () => {
     setProgress,
     reset,
     dispose,
+    setPlayMode,
+    beginSeek,
+    endSeek,
+    setPlaylist,
+    addToPlaylist,
+    removeSong,
+    clearSongs,
 
     // volume controls
     volume,
+    previousVolume,
     muted,
     setVolume,
-    toggleMute
+    toggleMute,
+    // buffered
+    bufferedPercent,
+    bufferedRanges,
+    updateBuffered,
+    attachBufferListeners,
+    detachBufferListeners
   }
 })

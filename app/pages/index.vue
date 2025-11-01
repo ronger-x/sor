@@ -10,7 +10,7 @@
       <!-- 加载状态 -->
       <div v-if="songsLoading" class="flex items-center justify-center h-full">
         <div class="text-center">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl mb-2"/>
+          <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl mb-2" />
           <p class="text-sm text-gray-500">加载歌曲中...</p>
         </div>
       </div>
@@ -22,7 +22,7 @@
           :class="['card-surface', 'border-theme', cardClasses]"
           @click="playSong(idx)"
         >
-          <img
+          <NuxtImg
             :src="song.cover"
             :alt="song.name"
             class="w-32 h-32 object-cover rounded mb-4 mx-auto"

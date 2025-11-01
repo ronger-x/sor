@@ -3,19 +3,23 @@
     <div class="w-full space-y-2">
       <!-- 歌曲信息和控制按钮 -->
       <div class="relative flex items-center w-full">
-        <img
+        <NuxtImg
           :src="currentSong?.cover"
           class="w-10 h-10 md:w-12 md:h-12 rounded mr-4"
           :alt="currentSong?.name"
+          :placeholder="[50, 25, 75, 5]"
         />
         <div class="flex-1 min-w-0">
           <div class="font-bold truncate">{{ currentSong?.name }}</div>
           <div class="text-sm truncate">{{ currentSong?.artist }}</div>
         </div>
         <div v-if="$device.isDesktop" :class="centerControlClasses" style="z-index: 20">
-          <!-- Volume button: placed before lyrics -->
+          <!-- Play Mode Button -->
+          <UButton :icon="playModeIcon" variant="ghost" @click.stop="cyclePlayMode" />
+
+          <!-- Volume button -->
           <UPopover v-model:open="showVolume" placement="top-end">
-            <UButton :icon="volumeIcon" variant="ghost" />
+            <UButton :icon="volumeIcon" variant="ghost" @click.stop />
             <template #content>
               <USlider
                 orientation="vertical"
@@ -37,14 +41,62 @@
             variant="ghost"
             @click.stop="nextSong"
             :disabled="!hasNext"
-          />
+          /><!-- Playlist Button -->
+          <UPopover ref="playlistPopover" @open="onPlaylistOpen">
+            <UButton icon="i-lucide-list-music" variant="ghost" @click.stop />
+            <template #content>
+              <div class="p-3 w-64 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-semibold uppercase opacity-70">
+                    播放列表 ({{ songsStore.songs.length }})
+                  </div>
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="error"
+                    icon="i-lucide-trash-2"
+                    @click.stop="clearAll"
+                    :disabled="!songsStore.songs.length"
+                  />
+                </div>
+                <div ref="playlistContainer" class="max-h-64 overflow-auto space-y-1 pr-1">
+                  <div
+                    v-for="(s, i) in songsStore.songs"
+                    :key="s.url"
+                    class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
+                    :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
+                    @click.stop="playFromList(i)"
+                  >
+                    <NuxtImg :src="s.cover" class="w-8 h-8 rounded object-cover shrink-0" />
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium truncate">{{ s.name }}</div>
+                      <div class="text-xs opacity-60 truncate">{{ s.artist }}</div>
+                    </div>
+                    <UButton
+                      v-if="currentSong?.url !== s.url"
+                      icon="i-lucide-x"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      class="opacity-0 group-hover:opacity-100 transition-opacity"
+                      @click.stop="removeAt(i)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UPopover>
+
           <UButton icon="i-lucide-music-4" variant="ghost" @click.stop="showLyrics" />
         </div>
         <!-- Mobile compact controls: show on non-desktop devices -->
         <div v-else class="flex items-center gap-2 ml-2 z-20">
+          <!-- Play Mode Button -->
+          <UButton :icon="playModeIcon" variant="ghost" size="sm" @click.stop="cyclePlayMode" />
+
           <!-- Mobile: volume button before lyrics -->
           <UPopover v-model:open="showVolume" placement="top-end">
-            <UButton :icon="volumeIcon" variant="ghost" size="sm" />
+            <UButton :icon="volumeIcon" variant="ghost" size="sm" @click.stop />
             <template #content>
               <USlider
                 orientation="vertical"
@@ -75,12 +127,50 @@
             @click.stop="nextSong"
             :disabled="!hasNext"
           />
-          <UButton
-            icon="i-lucide-music-4"
-            variant="ghost"
-            size="sm"
-            @click.stop="showLyrics"
-          />
+          <!-- Mobile Playlist Button -->
+          <UPopover ref="mobilePlaylistPopover" @open="onPlaylistOpen">
+            <UButton icon="i-lucide-list-music" variant="ghost" size="sm" @click.stop />
+            <template #content>
+              <div class="p-2 w-56 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-semibold uppercase opacity-70">
+                    列表 ({{ songsStore.songs.length }})
+                  </div>
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="error"
+                    icon="i-lucide-trash-2"
+                    @click.stop="clearAll"
+                    :disabled="!songsStore.songs.length"
+                  />
+                </div>
+                <div ref="mobilePlaylistContainer" class="max-h-48 overflow-auto space-y-1 pr-1">
+                  <div
+                    v-for="(s, i) in songsStore.songs"
+                    :key="s.url"
+                    class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
+                    :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
+                    @click.stop="playFromList(i)"
+                  >
+                    <NuxtImg :src="s.cover" class="w-6 h-6 rounded object-cover shrink-0" />
+                    <span class="truncate flex-1">{{ s.name }}</span>
+                    <UButton
+                      v-if="currentSong?.url !== s.url"
+                      icon="i-lucide-x"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      class="opacity-0 group-hover:opacity-100 transition-opacity"
+                      @click.stop="removeAt(i)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UPopover>
+
+          <UButton icon="i-lucide-music-4" variant="ghost" size="sm" @click.stop="showLyrics" />
         </div>
       </div>
 
@@ -90,17 +180,27 @@
         :class="progressContainerClasses"
         :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
       >
-        <span class="text-xs tabular-nums min-w-[40px] text-right">
+        <span class="text-xs tabular-nums min-w-10 text-right">
           {{ formatTime(currentTime) }}
         </span>
-        <USlider
-          :model-value="currentTime"
-          :max="duration || 100"
-          :step="0.1"
-          class="flex-1"
-          @update:model-value="onProgressChange"
-        />
-        <span class="text-xs tabular-nums min-w-[40px]">
+        <div class="relative flex-1 h-4 flex items-center">
+          <div class="absolute inset-x-0 h-1.5 rounded-full bg-accented/30 overflow-hidden">
+            <div
+              class="h-full bg-accented/60 transition-all duration-300"
+              :style="{ width: `${(bufferedPercent * 100).toFixed(2)}%` }"
+            ></div>
+          </div>
+          <USlider
+            :model-value="currentTime"
+            :max="duration || 100"
+            :step="0.1"
+            class="flex-1 relative"
+            @pointerdown="onSeekStart"
+            @pointerup="onSeekEnd"
+            @update:model-value="onProgressChange"
+          />
+        </div>
+        <span class="text-xs tabular-nums min-w-10">
           {{ formatTime(duration) }}
         </span>
       </div>
@@ -134,6 +234,12 @@ const audioElement = ref<HTMLAudioElement | null>(null)
 const showVolume = ref(false)
 const isSeeking = ref(false)
 
+// Playlist refs
+const playlistPopover = ref()
+const mobilePlaylistPopover = ref()
+const playlistContainer = ref<HTMLDivElement | null>(null)
+const mobilePlaylistContainer = ref<HTMLDivElement | null>(null)
+
 const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
 
 // 使用 store 中的状态
@@ -144,15 +250,26 @@ const hasPrev = computed(() => songsStore.hasPrev)
 const hasNext = computed(() => songsStore.hasNext)
 const volume = computed(() => songsStore.volume)
 const muted = computed(() => songsStore.muted)
+const bufferedPercent = computed(() => songsStore.bufferedPercent)
+const playMode = computed(() => songsStore.playMode)
 
-const playPauseIcon = computed(() =>
-  songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'
-)
+const playPauseIcon = computed(() => (songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'))
 
 const volumeIcon = computed(() => {
   if (muted.value || (volume.value ?? 1) === 0) return 'i-lucide-volume-off'
   if ((volume.value ?? 1) < 0.5) return 'i-lucide-volume-1'
   return 'i-lucide-volume-2'
+})
+
+const playModeIcon = computed(() => {
+  switch (playMode.value) {
+    case 'repeat-one':
+      return 'i-lucide-repeat-1'
+    case 'shuffle':
+      return 'i-lucide-shuffle'
+    default:
+      return 'i-lucide-repeat'
+  }
 })
 
 // ⭐ 组件挂载时初始化 audio 元素到 store
@@ -222,6 +339,16 @@ function onProgressChange(value: number | undefined) {
   }, 100)
 }
 
+function onSeekStart() {
+  isSeeking.value = true
+  songsStore.beginSeek()
+}
+
+function onSeekEnd() {
+  isSeeking.value = false
+  songsStore.endSeek()
+}
+
 function onVolumeChange(val: number | undefined) {
   if (val === undefined) return
   const v = Math.max(0, Math.min(100, Number(val))) / 100
@@ -247,6 +374,53 @@ function showLyrics() {
     songsStore.showCurrentLyrics()
     router.push('/lyric')
   }
+}
+
+// 播放列表相关函数
+function playFromList(index: number) {
+  songsStore.playSong(index)
+}
+
+function removeAt(index: number) {
+  songsStore.removeSong(index)
+}
+
+function clearAll() {
+  if (confirm('确定要清空播放列表吗？')) {
+    songsStore.clearSongs()
+  }
+}
+
+function cyclePlayMode() {
+  const modes: Array<'sequential' | 'repeat-one' | 'shuffle'> = [
+    'sequential',
+    'repeat-one',
+    'shuffle'
+  ]
+  const currentIndex = modes.indexOf(playMode.value)
+  const nextIndex = (currentIndex + 1) % modes.length
+  const nextMode = modes[nextIndex]
+  if (nextMode) {
+    songsStore.setPlayMode(nextMode)
+  }
+}
+
+function onPlaylistOpen() {
+  // 滚动当前播放项到视图中心
+  requestAnimationFrame(() => {
+    const containers = [playlistContainer.value, mobilePlaylistContainer.value].filter(Boolean)
+    containers.forEach(container => {
+      if (!container) return
+      const activeItem = container.querySelector('.bg-primary\\/15') as HTMLElement
+      if (activeItem) {
+        const containerHeight = container.clientHeight
+        const itemTop = activeItem.offsetTop
+        const itemHeight = activeItem.clientHeight
+        const scrollTop = itemTop - containerHeight / 2 + itemHeight / 2
+        container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
+      }
+    })
+  })
 }
 
 const containerClasses = computed(() => [
@@ -280,7 +454,7 @@ const progressContainerClasses = computed(() => [
   'mx-auto', // 居中对齐
   // 桌面端：限制最大宽度，与按钮组对齐
   'md:max-w-[400px]', // 5个按钮的宽度 (约 40px * 5 + gap)
-  'lg:max-w-[450px]',  // 大屏幕稍微放宽
+  'lg:max-w-[450px]', // 大屏幕稍微放宽
   // 移动端：使用全宽但留出边距
   'max-w-full'
 ])

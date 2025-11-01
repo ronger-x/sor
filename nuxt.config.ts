@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   ui: {
     fonts: false
   },
-  modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/device'],
+  modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/device', '@nuxt/image'],
   runtimeConfig: {
     // server-only keys (not exposed to the client)
     musicApiUrl: process.env.NUXT_MUSIC_API_URL || '',

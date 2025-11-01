@@ -1,12 +1,15 @@
 {
-	"servers": {
-		"nuxt": {
-			"url": "https://mcp.nuxt.com/sse"
-		},
-		"nuxt-ui": {
-			"url": "https://ui.nuxt.com/mcp",
-			"type": "http"
-		}
-	},
-	"inputs": []
+  "servers": {
+    "nuxt": {
+      "url": "https://mcp.nuxt.com/sse"
+    },
+    "nuxt-ui": {
+      "url": "https://ui.nuxt.com/mcp",
+      "type": "http"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
 }
