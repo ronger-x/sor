@@ -3,9 +3,7 @@
     <div v-if="songsStore.songs && songsStore.songs.length" class="relative">
       <!-- Refresh button positioned at the top-right of the songs list -->
       <div class="absolute top-0 right-0 z-10">
-        <UButton icon="i-lucide-refresh-cw" subtle @click="songsStore.fetchDefaultSongs"
-          >换一批</UButton
-        >
+        <UButton icon="i-lucide-refresh-cw" subtle @click="reloadSongs">换一批</UButton>
       </div>
       <!-- 加载状态 -->
       <div v-if="songsLoading" class="flex items-center justify-center h-full">
@@ -53,8 +51,16 @@ const songsStore = useSongsStore()
 const songsLoading = computed(() => songsStore.loading)
 
 const playSong = (idx: number) => {
-  // 直接调用 pinia 的 playSong 方法，audioRef 由 PlayerBar 组件管理
+  // 首页点击歌曲时，将当前搜索结果设置为播放列表
+  if (!songsStore.currentPlaylistId || songsStore.currentPlaylistId === 'default') {
+    songsStore.setPlaylist('default', '当前播放', songsStore.songs)
+  }
+  // 然后播放歌曲
   songsStore.playSong(idx)
+}
+
+const reloadSongs = () => {
+  songsStore.searchSongs('', true)
 }
 
 const cardClasses = computed(() =>

@@ -50,30 +50,40 @@ export const useSongsStore = defineStore('songs', () => {
 
   // Computed: 判断当前歌曲是否在播放列表中
   const isCurrentSongInList = computed(() => {
-    if (!currentSong.value) return false
-    return songs.value.some(s => s.url === currentSong.value?.url)
+    if (!currentSong.value || !currentPlaylist.value) return false
+    return currentPlaylist.value.items.some(s => s.url === currentSong.value?.url)
   })
 
-  // Computed: 获取当前歌曲在列表中的索引
+  // Computed: 获取当前歌曲在播放列表中的索引
   const currentSongIndex = computed(() => {
-    if (!currentSong.value) return -1
-    return songs.value.findIndex(s => s.url === currentSong.value?.url)
+    if (!currentSong.value || !currentPlaylist.value) return -1
+    return currentPlaylist.value.items.findIndex(s => s.url === currentSong.value?.url)
   })
+
+  // Computed: 获取当前播放列表
+  const currentPlaylist = computed(() => {
+    if (!currentPlaylistId.value) return null
+    return playlists.value.find(p => p.id === currentPlaylistId.value) || null
+  })
+
+  // Computed: 当前播放列表的歌曲数组
+  const playlistItems = computed(() => currentPlaylist.value?.items || [])
 
   function ensureShuffle() {
     if (playMode.value !== 'shuffle') return
+    const items = playlistItems.value
     const curIdx = currentSongIndex.value
     const needRebuild =
-      shuffledOrder.value.length !== songs.value.length ||
-      !shuffledOrder.value.every(i => i < songs.value.length)
+      shuffledOrder.value.length !== items.length ||
+      !shuffledOrder.value.every(i => i < items.length)
     if (!needRebuild) return
-    const prevPos = Math.min(Math.max(shuffleIndex, 0), Math.max(songs.value.length - 1, 0))
+    const prevPos = Math.min(Math.max(shuffleIndex, 0), Math.max(items.length - 1, 0))
     if (curIdx < 0) {
-      shuffledOrder.value = songs.value.map((_, i) => i).sort(() => Math.random() - 0.5)
+      shuffledOrder.value = items.map((_, i) => i).sort(() => Math.random() - 0.5)
       shuffleIndex = 0
       return
     }
-    const others = songs.value.map((_, i) => i).filter(i => i !== curIdx)
+    const others = items.map((_, i) => i).filter(i => i !== curIdx)
     for (let i = others.length - 1; i > 0; i--) {
       const r = Math.floor(Math.random() * (i + 1))
       if (r < 0 || r >= others.length) continue
@@ -91,15 +101,17 @@ export const useSongsStore = defineStore('songs', () => {
   // Computed: 是否有上一首
   const hasPrev = computed(() => {
     const idx = currentSongIndex.value
-    if (idx === -1) return songs.value.length > 0
+    const items = playlistItems.value
+    if (idx === -1) return items.length > 0
     return idx > 0
   })
 
   // Computed: 是否有下一首
   const hasNext = computed(() => {
     const idx = currentSongIndex.value
-    if (idx === -1) return songs.value.length > 0
-    return idx < songs.value.length - 1
+    const items = playlistItems.value
+    if (idx === -1) return items.length > 0
+    return idx < items.length - 1
   })
 
   // ⭐ 初始化 audio 元素（在组件中调用）
@@ -150,6 +162,10 @@ export const useSongsStore = defineStore('songs', () => {
 
   async function fetchDefaultSongs() {
     await searchSongs('', true)
+    // 初始加载时创建默认播放列表
+    if (songs.value.length > 0 && !currentPlaylistId.value) {
+      setPlaylist('default', '默认播放列表', songs.value)
+    }
     await assignInitialRandomIfNeeded()
   }
 
@@ -173,8 +189,10 @@ export const useSongsStore = defineStore('songs', () => {
   let playTokenCounter = 0
 
   async function playSong(idx: number) {
+    const items = playlistItems.value
+
     // 处理索引越界
-    if (idx < 0 || idx >= songs.value.length) {
+    if (idx < 0 || idx >= items.length) {
       console.warn('Invalid song index:', idx)
       return
     }
@@ -185,8 +203,14 @@ export const useSongsStore = defineStore('songs', () => {
       return
     }
 
+    // 如果没有播放列表，无法播放
+    if (!currentPlaylist.value) {
+      console.warn('No playlist available')
+      return
+    }
+
     currentIndex.value = idx // deprecated
-    currentSong.value = songs.value[idx] || null
+    currentSong.value = items[idx] || null
 
     // 重置播放进度
     currentTime.value = 0
@@ -254,7 +278,8 @@ export const useSongsStore = defineStore('songs', () => {
 
   // 播放上一首
   async function playPrevSong() {
-    if (!songs.value.length) return
+    const items = playlistItems.value
+    if (!items.length) return
     if (playMode.value === 'repeat-one' && currentSongIndex.value >= 0) {
       await playSong(currentSongIndex.value)
       return
@@ -278,7 +303,8 @@ export const useSongsStore = defineStore('songs', () => {
 
   // 播放下一首
   async function playNextSong() {
-    if (!songs.value.length) return
+    const items = playlistItems.value
+    if (!items.length) return
     if (playMode.value === 'repeat-one' && currentSongIndex.value >= 0) {
       await playSong(currentSongIndex.value)
       return
@@ -295,7 +321,7 @@ export const useSongsStore = defineStore('songs', () => {
     const idx = currentSongIndex.value
     if (idx === -1) {
       await playSong(0)
-    } else if (idx < songs.value.length - 1) {
+    } else if (idx < items.length - 1) {
       await playSong(idx + 1)
     } else {
       // 到末尾，循环到第一首
@@ -310,8 +336,8 @@ export const useSongsStore = defineStore('songs', () => {
       return
     }
 
-    // 如果没有当前歌曲，尝试播放第一首
-    if (!currentSong.value && songs.value.length > 0) {
+    // 如果没有当前歌曲，尝试播放播放列表的第一首
+    if (!currentSong.value && playlistItems.value.length > 0) {
       await playSong(0)
       return
     }
@@ -536,17 +562,11 @@ export const useSongsStore = defineStore('songs', () => {
   function preloadNextSong() {
     const idx = currentSongIndex.value
     if (idx === -1) return
-    const next = songs.value[idx + 1]
+    const items = playlistItems.value
+    const next = items[idx + 1]
     if (!next) return
-    if (next.url) {
-      if (!document.head.querySelector(`link[rel=preload][as=audio][href="${next.url}"]`)) {
-        const link = document.createElement('link')
-        link.rel = 'preload'
-        link.as = 'audio'
-        link.href = next.url
-        document.head.appendChild(link)
-      }
-    }
+
+    // 预加载歌词（保留歌词预加载因为这是可靠的）
     if (next.lrc && !lrcCache.has(next.lrc)) {
       $fetch('/api/lyrics', { params: { url: next.lrc } })
         .then((lrc: any) => {
@@ -717,7 +737,6 @@ export const useSongsStore = defineStore('songs', () => {
       playlists.value.push({ id, name, items: items.slice() })
     }
     currentPlaylistId.value = id
-    songs.value = items.slice()
     shuffledOrder.value = [] // 重置随机顺序
   }
 
@@ -725,10 +744,7 @@ export const useSongsStore = defineStore('songs', () => {
     const pl = playlists.value.find(p => p.id === id)
     if (!pl) return
     pl.items.push(...items)
-    if (currentPlaylistId.value === id) {
-      songs.value = pl.items.slice()
-      shuffledOrder.value = []
-    }
+    shuffledOrder.value = []
   }
 
   function setPlayMode(mode: 'sequential' | 'repeat-one' | 'shuffle') {
@@ -751,9 +767,10 @@ export const useSongsStore = defineStore('songs', () => {
   let initialRandomAssigned = false
   async function assignInitialRandomIfNeeded() {
     if (initialRandomAssigned) return
-    if (!songs.value.length) return
-    const idx = Math.floor(Math.random() * songs.value.length)
-    const picked = songs.value[idx]
+    const items = playlistItems.value
+    if (!items.length) return
+    const idx = Math.floor(Math.random() * items.length)
+    const picked = items[idx]
     if (!picked) return
     currentSong.value = picked
     currentIndex.value = idx
@@ -776,18 +793,31 @@ export const useSongsStore = defineStore('songs', () => {
   }
 
   function removeSong(index: number) {
-    if (index < 0 || index >= songs.value.length) return
+    if (!currentPlaylist.value) return
+    const items = playlistItems.value
+    if (index < 0 || index >= items.length) return
+
     const wasCurrent = currentSongIndex.value === index
-    songs.value.splice(index, 1)
-    if (!songs.value.length) {
+
+    // 从播放列表中移除
+    currentPlaylist.value.items.splice(index, 1)
+
+    // 同步更新 songs（如果当前播放列表是默认播放列表）
+    if (currentPlaylistId.value === 'default') {
+      songs.value = currentPlaylist.value.items.slice()
+    }
+
+    if (!currentPlaylist.value.items.length) {
       reset()
       return
     }
+
     shuffledOrder.value = []
     ensureShuffle()
+
     if (wasCurrent) {
-      const newIndex = Math.min(index, songs.value.length - 1)
-      const replacement = songs.value[newIndex]
+      const newIndex = Math.min(index, currentPlaylist.value.items.length - 1)
+      const replacement = currentPlaylist.value.items[newIndex]
       if (replacement) {
         currentSong.value = replacement
         currentIndex.value = newIndex
@@ -797,7 +827,16 @@ export const useSongsStore = defineStore('songs', () => {
   }
 
   function clearSongs() {
-    songs.value = []
+    if (!currentPlaylist.value) return
+
+    // 清空当前播放列表
+    currentPlaylist.value.items = []
+
+    // 同步更新 songs（如果当前播放列表是默认播放列表）
+    if (currentPlaylistId.value === 'default') {
+      songs.value = []
+    }
+
     reset()
   }
 
@@ -815,10 +854,14 @@ export const useSongsStore = defineStore('songs', () => {
     lyricsModal,
     currentLyricLine,
     playMode,
+    playlists,
+    currentPlaylistId,
 
     // Computed
     isCurrentSongInList,
     currentSongIndex,
+    currentPlaylist,
+    playlistItems,
     hasPrev,
     hasNext,
 

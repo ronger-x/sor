@@ -42,13 +42,13 @@
             @click.stop="nextSong"
             :disabled="!hasNext"
           /><!-- Playlist Button -->
-          <UPopover ref="playlistPopover" @open="onPlaylistOpen">
+          <UPopover ref="playlistPopover" @update:open="onPlaylistOpen">
             <UButton icon="i-lucide-list-music" variant="ghost" @click.stop />
             <template #content>
               <div class="p-3 w-64 space-y-2">
                 <div class="flex items-center justify-between">
                   <div class="text-xs font-semibold uppercase opacity-70">
-                    播放列表 ({{ songsStore.songs.length }})
+                    {{ currentPlaylist?.name || '播放列表' }} ({{ playlistSongs.length }})
                   </div>
                   <UButton
                     size="xs"
@@ -56,12 +56,12 @@
                     color="error"
                     icon="i-lucide-trash-2"
                     @click.stop="clearAll"
-                    :disabled="!songsStore.songs.length"
+                    :disabled="!playlistSongs.length"
                   />
                 </div>
                 <div ref="playlistContainer" class="max-h-64 overflow-auto space-y-1 pr-1">
                   <div
-                    v-for="(s, i) in songsStore.songs"
+                    v-for="(s, i) in playlistSongs"
                     :key="s.url"
                     class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
@@ -128,13 +128,13 @@
             :disabled="!hasNext"
           />
           <!-- Mobile Playlist Button -->
-          <UPopover ref="mobilePlaylistPopover" @open="onPlaylistOpen">
+          <UPopover ref="mobilePlaylistPopover" @update:open="onPlaylistOpen">
             <UButton icon="i-lucide-list-music" variant="ghost" size="sm" @click.stop />
             <template #content>
               <div class="p-2 w-56 space-y-2">
                 <div class="flex items-center justify-between">
                   <div class="text-xs font-semibold uppercase opacity-70">
-                    列表 ({{ songsStore.songs.length }})
+                    {{ currentPlaylist?.name || '列表' }} ({{ playlistSongs.length }})
                   </div>
                   <UButton
                     size="xs"
@@ -142,12 +142,12 @@
                     color="error"
                     icon="i-lucide-trash-2"
                     @click.stop="clearAll"
-                    :disabled="!songsStore.songs.length"
+                    :disabled="!playlistSongs.length"
                   />
                 </div>
                 <div ref="mobilePlaylistContainer" class="max-h-48 overflow-auto space-y-1 pr-1">
                   <div
-                    v-for="(s, i) in songsStore.songs"
+                    v-for="(s, i) in playlistSongs"
                     :key="s.url"
                     class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
@@ -252,6 +252,10 @@ const volume = computed(() => songsStore.volume)
 const muted = computed(() => songsStore.muted)
 const bufferedPercent = computed(() => songsStore.bufferedPercent)
 const playMode = computed(() => songsStore.playMode)
+const currentPlaylist = computed(() => songsStore.currentPlaylist)
+
+// 当前播放列表的歌曲数组
+const playlistSongs = computed(() => currentPlaylist.value?.items || [])
 
 const playPauseIcon = computed(() => (songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'))
 
@@ -411,7 +415,8 @@ function onPlaylistOpen() {
     const containers = [playlistContainer.value, mobilePlaylistContainer.value].filter(Boolean)
     containers.forEach(container => {
       if (!container) return
-      const activeItem = container.querySelector('.bg-primary\\/15') as HTMLElement
+      // 使用属性选择器来查找当前播放的歌曲
+      const activeItem = container.querySelector('[class*="ring-1"]') as HTMLElement
       if (activeItem) {
         const containerHeight = container.clientHeight
         const itemTop = activeItem.offsetTop
