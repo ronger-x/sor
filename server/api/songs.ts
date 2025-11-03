@@ -6,21 +6,27 @@ export default eventHandler(async (event: H3Event) => {
   const apiKey = config.musicApiKey
 
   if (!apiUrl) {
-    event.node.res.statusCode = 500
-    return {
-      error: 'missing_server_api_url',
-      message:
-        'Server is missing MUSIC_API_URL. Set MUSIC_API_URL in your environment (see README).'
-    }
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Music API URL not configured',
+      data: {
+        error: 'missing_server_api_url',
+        message:
+          'Server is missing MUSIC_API_URL. Set MUSIC_API_URL in your environment (see README).'
+      }
+    })
   }
 
   if (!apiKey) {
-    event.node.res.statusCode = 500
-    return {
-      error: 'missing_server_api_key',
-      message:
-        'Server is missing MUSIC_API_KEY. Set MUSIC_API_KEY in your environment (see README).'
-    }
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Music API Key not configured',
+      data: {
+        error: 'missing_server_api_key',
+        message:
+          'Server is missing MUSIC_API_KEY. Set MUSIC_API_KEY in your environment (see README).'
+      }
+    })
   }
 
   // forward query params from client
@@ -31,9 +37,10 @@ export default eventHandler(async (event: H3Event) => {
   })
 
   // ✅ 使用 H3 内置方法获取客户端 IP
-  const clientIp = getRequestIP(event, {
-    xForwardedFor: true  // 启用 X-Forwarded-For 支持
-  }) || 'unknown'
+  const clientIp =
+    getRequestIP(event, {
+      xForwardedFor: true // 启用 X-Forwarded-For 支持
+    }) || 'unknown'
 
   // 获取 User-Agent
   const userAgent = event.node.req.headers['user-agent'] || ''
@@ -49,13 +56,13 @@ export default eventHandler(async (event: H3Event) => {
       headers
     })
   } catch (err: any) {
-    const code = err?.statusCode || err?.response?.status || 502
-    const msg =
-      err?.response?.statusText ||
-      err?.statusMessage ||
-      err?.message ||
-      'Failed to fetch resource from upstream service.'
-    event.node.res.statusCode = code
-    return { error: 'fetch_failed', code, message: msg }
+    throw createError({
+      statusCode: err?.statusCode || err?.response?.status || 502,
+      statusMessage: err?.statusMessage || err?.response?.statusText || 'Upstream service error',
+      data: {
+        error: 'fetch_failed',
+        message: err?.message || 'Failed to fetch resource from upstream service.'
+      }
+    })
   }
 })

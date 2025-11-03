@@ -23,6 +23,9 @@
           <NuxtImg
             :src="song.cover"
             :alt="song.name"
+            width="128"
+            height="128"
+            loading="lazy"
             class="w-32 h-32 object-cover rounded mb-4 mx-auto"
           />
           <div class="font-bold text-lg w-full">{{ song.name }}</div>

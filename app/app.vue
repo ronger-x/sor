@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, computed, watch } from 'vue'
+import { onBeforeUnmount, computed } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 
 const songsStore = useSongsStore()
@@ -18,33 +18,29 @@ const pageTitle = computed(() => {
   return 'S.O.R Music'
 })
 
-const description = 'a music player'
+const description = 'A modern music player built with Nuxt'
 
-useHead({
-  meta: [
-    { charset: 'utf-8' },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
-  ],
-  link: [{ rel: 'icon', href: '/favicon.ico' }],
-  htmlAttrs: {
-    lang: 'en'
-  },
-  title: pageTitle
+// 使用 useSeoMeta 统一管理所有 SEO 相关的 meta 标签
+useSeoMeta({
+  title: pageTitle,
+  description,
+  ogTitle: pageTitle,
+  ogDescription: description,
+  ogImage: () => songsStore.currentSong?.cover || '/favicon.ico',
+  ogType: 'music.song',
+  twitterCard: 'summary_large_image',
+  twitterTitle: pageTitle,
+  twitterDescription: description,
+  twitterImage: () => songsStore.currentSong?.cover || '/favicon.ico'
 })
 
-// 同时更新 SEO meta 标签
-watch(
-  pageTitle,
-  newTitle => {
-    useSeoMeta({
-      title: newTitle,
-      description,
-      ogTitle: newTitle,
-      ogDescription: description
-    })
+// 仅使用 useHead 处理非 SEO 相关的 head 内容
+useHead({
+  htmlAttrs: {
+    lang: 'zh-CN'
   },
-  { immediate: true }
-)
+  link: [{ rel: 'icon', href: '/favicon.ico' }]
+})
 </script>
 <template>
   <UApp>

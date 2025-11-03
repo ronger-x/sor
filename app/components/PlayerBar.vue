@@ -5,9 +5,12 @@
       <div class="relative flex items-center w-full">
         <NuxtImg
           :src="currentSong?.cover"
-          class="w-10 h-10 md:w-12 md:h-12 rounded mr-4"
           :alt="currentSong?.name"
+          width="48"
+          height="48"
+          loading="eager"
           :placeholder="[50, 25, 75, 5]"
+          class="w-10 h-10 md:w-12 md:h-12 rounded mr-4"
         />
         <div class="flex-1 min-w-0">
           <div class="font-bold truncate">{{ currentSong?.name }}</div>
@@ -15,17 +18,31 @@
         </div>
         <div v-if="$device.isDesktop" :class="centerControlClasses" style="z-index: 20">
           <!-- Play Mode Button -->
-          <UButton :icon="playModeIcon" variant="ghost" @click.stop="cyclePlayMode" />
+          <UButton
+            :icon="playModeIcon"
+            variant="ghost"
+            @click.stop="cyclePlayMode"
+            :aria-label="playModeLabel"
+            :title="playModeLabel"
+          />
 
           <!-- Volume button -->
           <UPopover v-model:open="showVolume" placement="top-end">
-            <UButton :icon="volumeIcon" variant="ghost" @click.stop />
+            <UButton
+              :icon="volumeIcon"
+              variant="ghost"
+              @click.stop
+              :aria-label="volumeLabel"
+              :title="volumeLabel"
+              :aria-expanded="showVolume"
+            />
             <template #content>
               <USlider
                 orientation="vertical"
                 :model-value="Math.round((volume ?? 1) * 100)"
                 @update:model-value="onVolumeChange"
                 class="h-48"
+                :aria-label="`音量: ${Math.round((volume ?? 1) * 100)}%`"
               />
             </template>
           </UPopover>
@@ -34,16 +51,34 @@
             variant="ghost"
             @click.stop="prevSong"
             :disabled="!hasPrev"
+            aria-label="上一曲"
+            title="上一曲"
           />
-          <UButton :icon="playPauseIcon" variant="solid" color="primary" @click.stop="togglePlay" />
+          <UButton
+            :icon="playPauseIcon"
+            variant="solid"
+            color="primary"
+            @click.stop="togglePlay"
+            :aria-label="songsStore.isPlaying ? '暂停' : '播放'"
+            :title="songsStore.isPlaying ? '暂停' : '播放'"
+            :aria-pressed="songsStore.isPlaying"
+          />
           <UButton
             icon="i-lucide-chevrons-right"
             variant="ghost"
             @click.stop="nextSong"
             :disabled="!hasNext"
+            aria-label="下一曲"
+            title="下一曲"
           /><!-- Playlist Button -->
           <UPopover ref="playlistPopover" @update:open="onPlaylistOpen">
-            <UButton icon="i-lucide-list-music" variant="ghost" @click.stop />
+            <UButton
+              icon="i-lucide-list-music"
+              variant="ghost"
+              @click.stop
+              aria-label="播放列表"
+              title="播放列表"
+            />
             <template #content>
               <div class="p-3 w-64 space-y-2">
                 <div class="flex items-center justify-between">
@@ -67,7 +102,14 @@
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
                     @click.stop="playFromList(i)"
                   >
-                    <NuxtImg :src="s.cover" class="w-8 h-8 rounded object-cover shrink-0" />
+                    <NuxtImg
+                      :src="s.cover"
+                      :alt="s.name"
+                      width="32"
+                      height="32"
+                      loading="lazy"
+                      class="w-8 h-8 rounded object-cover shrink-0"
+                    />
                     <div class="flex-1 min-w-0">
                       <div class="font-medium truncate">{{ s.name }}</div>
                       <div class="text-xs opacity-60 truncate">{{ s.artist }}</div>
@@ -87,22 +129,44 @@
             </template>
           </UPopover>
 
-          <UButton icon="i-lucide-music-4" variant="ghost" @click.stop="showLyrics" />
+          <UButton
+            icon="i-lucide-music-4"
+            variant="ghost"
+            @click.stop="showLyrics"
+            :aria-label="showLyricPage ? '返回主页' : '查看歌词'"
+            :title="showLyricPage ? '返回主页' : '查看歌词'"
+          />
         </div>
         <!-- Mobile compact controls: show on non-desktop devices -->
         <div v-else class="flex items-center gap-2 ml-2 z-20">
           <!-- Play Mode Button -->
-          <UButton :icon="playModeIcon" variant="ghost" size="sm" @click.stop="cyclePlayMode" />
+          <UButton
+            :icon="playModeIcon"
+            variant="ghost"
+            size="sm"
+            @click.stop="cyclePlayMode"
+            :aria-label="playModeLabel"
+            :title="playModeLabel"
+          />
 
           <!-- Mobile: volume button before lyrics -->
           <UPopover v-model:open="showVolume" placement="top-end">
-            <UButton :icon="volumeIcon" variant="ghost" size="sm" @click.stop />
+            <UButton
+              :icon="volumeIcon"
+              variant="ghost"
+              size="sm"
+              @click.stop
+              :aria-label="volumeLabel"
+              :title="volumeLabel"
+              :aria-expanded="showVolume"
+            />
             <template #content>
               <USlider
                 orientation="vertical"
                 :model-value="Math.round((volume ?? 1) * 100)"
                 @update:model-value="onVolumeChange"
                 class="h-32"
+                :aria-label="`音量: ${Math.round((volume ?? 1) * 100)}%`"
               />
             </template>
           </UPopover>
@@ -112,6 +176,8 @@
             size="sm"
             @click.stop="prevSong"
             :disabled="!hasPrev"
+            aria-label="上一曲"
+            title="上一曲"
           />
           <UButton
             :icon="playPauseIcon"
@@ -119,6 +185,9 @@
             color="primary"
             size="sm"
             @click.stop="togglePlay"
+            :aria-label="songsStore.isPlaying ? '暂停' : '播放'"
+            :title="songsStore.isPlaying ? '暂停' : '播放'"
+            :aria-pressed="songsStore.isPlaying"
           />
           <UButton
             icon="i-lucide-chevrons-right"
@@ -126,10 +195,19 @@
             size="sm"
             @click.stop="nextSong"
             :disabled="!hasNext"
+            aria-label="下一曲"
+            title="下一曲"
           />
           <!-- Mobile Playlist Button -->
           <UPopover ref="mobilePlaylistPopover" @update:open="onPlaylistOpen">
-            <UButton icon="i-lucide-list-music" variant="ghost" size="sm" @click.stop />
+            <UButton
+              icon="i-lucide-list-music"
+              variant="ghost"
+              size="sm"
+              @click.stop
+              aria-label="播放列表"
+              title="播放列表"
+            />
             <template #content>
               <div class="p-2 w-56 space-y-2">
                 <div class="flex items-center justify-between">
@@ -153,7 +231,14 @@
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
                     @click.stop="playFromList(i)"
                   >
-                    <NuxtImg :src="s.cover" class="w-6 h-6 rounded object-cover shrink-0" />
+                    <NuxtImg
+                      :src="s.cover"
+                      :alt="s.name"
+                      width="24"
+                      height="24"
+                      loading="lazy"
+                      class="w-6 h-6 rounded object-cover shrink-0"
+                    />
                     <span class="truncate flex-1">{{ s.name }}</span>
                     <UButton
                       v-if="currentSong?.url !== s.url"
@@ -170,7 +255,14 @@
             </template>
           </UPopover>
 
-          <UButton icon="i-lucide-music-4" variant="ghost" size="sm" @click.stop="showLyrics" />
+          <UButton
+            icon="i-lucide-music-4"
+            variant="ghost"
+            size="sm"
+            @click.stop="showLyrics"
+            :aria-label="showLyricPage ? '返回主页' : '查看歌词'"
+            :title="showLyricPage ? '返回主页' : '查看歌词'"
+          />
         </div>
       </div>
 
@@ -225,6 +317,9 @@
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSongsStore } from '@/stores/songs'
+import { useFormatTime } from '@/composables/useFormatTime'
+import { usePlayModeIcon } from '@/composables/usePlayModeIcon'
+import { useVolumeControl } from '@/composables/useVolumeControl'
 
 const songsStore = useSongsStore()
 const router = useRouter()
@@ -259,22 +354,10 @@ const playlistSongs = computed(() => currentPlaylist.value?.items || [])
 
 const playPauseIcon = computed(() => (songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'))
 
-const volumeIcon = computed(() => {
-  if (muted.value || (volume.value ?? 1) === 0) return 'i-lucide-volume-off'
-  if ((volume.value ?? 1) < 0.5) return 'i-lucide-volume-1'
-  return 'i-lucide-volume-2'
-})
-
-const playModeIcon = computed(() => {
-  switch (playMode.value) {
-    case 'repeat-one':
-      return 'i-lucide-repeat-1'
-    case 'shuffle':
-      return 'i-lucide-shuffle'
-    default:
-      return 'i-lucide-repeat'
-  }
-})
+// 使用组合式函数
+const { formatTime } = useFormatTime()
+const { playModeIcon, playModeLabel } = usePlayModeIcon(playMode)
+const { volumeIcon, volumeLabel } = useVolumeControl(volume, muted)
 
 // ⭐ 组件挂载时初始化 audio 元素到 store
 onMounted(() => {
@@ -292,14 +375,6 @@ onBeforeUnmount(() => {
   // 注意：不要调用 dispose()，因为可能有其他组件还在使用
   // dispose 应该在应用级别（app.vue）调用
 })
-
-// 格式化时间 (秒 -> mm:ss)
-function formatTime(seconds: number): string {
-  if (!seconds || !isFinite(seconds)) return '00:00'
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
 
 // ⭐ Audio 事件处理器
 function onTimeUpdate() {

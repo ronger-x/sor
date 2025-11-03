@@ -16,6 +16,9 @@
             v-if="item.cover"
             :src="item.cover"
             :alt="item.name"
+            width="40"
+            height="40"
+            loading="lazy"
             class="size-10 rounded object-cover"
           />
           <div v-else class="size-10 rounded bg-muted flex items-center justify-center">

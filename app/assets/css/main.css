@@ -1,8 +1,18 @@
-@import "tailwindcss" theme(static);
-@import "@nuxt/ui";
+@import 'tailwindcss' theme(static);
+@import '@nuxt/ui';
+
+/* 自定义字体 */
+@font-face {
+  font-family: 'EDIX';
+  src: url('/fonts/EDIX.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme static {
-  --font-sans: "Public Sans", sans-serif;
+  --font-sans: 'Public Sans', sans-serif;
+  --font-edix: 'EDIX', sans-serif;
 
   --color-green-50: #effdf5;
   --color-green-100: #d9fbe8;
