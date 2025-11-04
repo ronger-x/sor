@@ -2,7 +2,8 @@
   <UContainer class="min-h-screen flex flex-col">
     <UHeader class="sticky top-0 z-20 backdrop-blur">
       <template #title>
-        <span class="text-2xl font-bold tracking-wide text-primary font-edix">S.O.R Music</span>
+        <span v-if="$device.isDesktop" class="text-2xl font-bold tracking-wide text-primary font-edix">S.O.R Music</span>
+        <span v-else class="text-xl font-bold tracking-wide text-primary font-edix">S.O.R Music</span>
       </template>
 
       <!-- 桌面端导航菜单 -->

@@ -85,11 +85,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useSongsStore } from '@/stores/songs'
-import { useRouter } from 'vue-router'
 import type { Artist } from '@/types'
 
 const songsStore = useSongsStore()
-const router = useRouter()
 
 const searchQuery = ref('')
 const artists = computed(() => songsStore.allArtists)
@@ -140,7 +138,6 @@ async function handleArtistClick(artist: Artist) {
     songsStore.setPlaylist(`artist-${artist.artist}`, artist.artist, songs)
     // 播放第一首
     songsStore.playSong(0)
-    router.push('/')
   }
 }
 
