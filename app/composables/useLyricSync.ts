@@ -66,7 +66,10 @@ export function useLyricSync() {
   function startLyricSync(getAudio: () => HTMLAudioElement | null) {
     const audio = getAudio()
     if (!audio) return
+
+    // 如果已经在运行，先停止避免重复
     stopLyricSync()
+
     const sync = (ts: number) => {
       if (!audio) return
       if (
@@ -115,16 +118,32 @@ export function useLyricSync() {
     if (!audio) return
 
     try {
+      // 临时阻止同步更新
+      isUserSeeking.value = true
+
+      // 跳转音频
       audio.currentTime = timeMs / 1000
+
+      // 立即根据目标时间更新歌词
+      currentLyricLine.value = findLyricLine(timeMs)
+
+      // 开始播放
       audio.play().catch(e => {
         console.warn('Failed to play after seek:', e)
       })
-      currentLyricLine.value = findLyricLine(timeMs)
+
+      // 确保歌词同步已启动
+      startLyricSync(getAudio)
+
+      // 很短的延迟后恢复同步（让音频有时间跳转）
+      setTimeout(() => {
+        isUserSeeking.value = false
+      }, 150)
     } catch (e) {
       console.warn('seek failed', e)
+      isUserSeeking.value = false
     }
   }
-
   return {
     parsedLyrics,
     currentLyricLine,
