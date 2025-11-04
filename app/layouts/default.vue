@@ -29,7 +29,10 @@
     </UHeader>
 
     <UMain
-      class="flex-1 flex flex-col items-center justify-start w-full max-w-5xl mx-auto px-2 py-6 md:pb-24 pb-20"
+      :class="[
+        'flex-1 flex flex-col w-full mx-auto',
+        route.path === '/lyric' ? 'p-0' : 'items-center justify-start px-2 py-6 md:pb-24 pb-20'
+      ]"
     >
       <slot />
     </UMain>

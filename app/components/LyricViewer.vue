@@ -1,7 +1,7 @@
 <template>
-  <div class="h-screen flex flex-row">
-    <!-- 左侧黑胶唱片区域 - 固定宽度避免被右侧影响 -->
-    <div class="vinyl-section shrink-0 flex items-center p-12">
+  <div class="w-full flex">
+    <!-- 左侧黑胶唱片区域 - 占据50%宽度 -->
+    <div class="vinyl-section flex items-center justify-center">
       <div class="vinyl-wrapper">
         <!-- 白色底座 -->
         <div class="vinyl-base">
@@ -23,7 +23,7 @@
               />
               <div
                 v-else
-                class="w-full h-full bg-linear-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center"
+                class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center"
               >
                 <UIcon name="i-lucide-music" class="text-6xl text-white opacity-50" />
               </div>
@@ -45,8 +45,8 @@
       </div>
     </div>
 
-    <!-- 右侧歌词内容区域 -->
-    <div class="flex-1 overflow-hidden flex flex-col pl-12">
+    <!-- 右侧歌词内容区域 - 使用 flex-1 自动填充剩余空间 -->
+    <div class="lyrics-section flex flex-col">
       <!-- 加载状态 -->
       <div v-if="lyricsLoading" class="flex items-center justify-center h-full">
         <div class="text-center">
@@ -72,7 +72,7 @@
         ref="container"
         :class="[
           hideScrollbar ? 'hide-scrollbar' : '',
-          'lyrics-container overflow-auto p-4 custom-scrollbar',
+          'lyrics-container overflow-auto custom-scrollbar',
           { scrolling: isScrolling }
         ]"
         @click.stop=""
@@ -267,21 +267,21 @@ onBeforeUnmount(() => {
 function onLineClick(line: { time: number; text: string }) {
   if (!line || line.time === undefined) return
 
-  // 使用 store 的 seekTo 方法
+  // 使用 store 的 seekTo 方法（会自动开始播放）
   songsStore.seekTo(line.time)
-
-  // 如果当前是暂停状态，开始播放
-  if (!isPlaying.value) {
-    songsStore.togglePlay()
-  }
 }
 </script>
 
 <style scoped>
 /* ========== 黑胶唱片样式 ========== */
 .vinyl-section {
-  width: 70%; /* 固定宽度，避免右侧内容影响 */
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.01) 100%);
+  width: 50%; /* 占据50%宽度 */
+  height: 100vh; /* 固定高度为视口高度 */
+  flex-shrink: 0; /* 不被压缩 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 /* 唱片包裹容器 - 保持固定尺寸 */
@@ -377,36 +377,6 @@ function onLineClick(line: { time: number; text: string }) {
   );
   pointer-events: none;
   z-index: 1;
-}
-
-/* 中心标签 */
-.vinyl-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #3a3a3a 0%, #1a1a1a 100%);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.15),
-    inset 0 -1px 3px rgba(0, 0, 0, 0.5);
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vinyl-label-inner {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
 }
 
 /* 旋转动画 */
@@ -526,96 +496,36 @@ function onLineClick(line: { time: number; text: string }) {
   transform: rotate(-3deg);
 }
 
-/* 响应式设计 */
-@media (max-width: 1280px) {
-  .vinyl-section {
-    width: 420px;
-  }
-
-  .vinyl-wrapper {
-    width: 320px;
-    height: 320px;
-  }
-
-  .vinyl-base {
-    padding: 30px;
-  }
-
-  .vinyl-record {
-    width: 260px;
-    height: 260px;
-  }
-
-  .vinyl-cover {
-    width: 160px;
-    height: 160px;
-  }
-
-  .vinyl-label {
-    width: 75px;
-    height: 75px;
-  }
-
-  .vinyl-label-inner {
-    width: 58px;
-    height: 58px;
-  }
+/* ========== 歌词区域样式 ========== */
+.lyrics-section {
+  width: 50%; /* 占据50%宽度 */
+  height: 100vh; /* 固定高度为视口高度 */
+  flex-shrink: 0; /* 不被压缩 */
+  overflow: hidden; /* 防止内容溢出到父容器外 */
+  padding: 2rem; /* 添加内边距 */
+  display: flex;
+  flex-direction: column;
 }
 
-@media (max-width: 1024px) {
-  .vinyl-section {
-    width: 360px;
-  }
-
-  .vinyl-wrapper {
-    width: 280px;
-    height: 280px;
-  }
-
-  .vinyl-base {
-    padding: 25px;
-  }
-
-  .vinyl-record {
-    width: 230px;
-    height: 230px;
-  }
-
-  .vinyl-cover {
-    width: 140px;
-    height: 140px;
-  }
-
-  .tonearm {
-    width: 150px;
-    height: 150px;
-    right: -30px;
-  }
-
-  .tonearm-arm {
-    width: 100px;
-  }
-}
-
-@media (max-width: 768px) {
-  .vinyl-section {
-    display: none;
-  }
-}
-
-/* ========== 歌词样式 ========== */
+/* 歌词容器 */
 .lyrics-container {
-  height: 100%;
-  max-height: none;
-  min-height: 0;
+  flex: 1; /* 占满父容器剩余空间 */
+  width: 100%; /* 确保宽度不超出父容器 */
+  max-width: 100%; /* 限制最大宽度 */
+  overflow-y: auto; /* 只在垂直方向滚动 */
+  overflow-x: hidden; /* 隐藏水平滚动 */
   scroll-behavior: smooth;
+  padding: 0 1rem; /* 添加水平内边距 */
 }
 
 .lyric-line {
-  font-size: 1rem;
+  font-size: 1.125rem; /* 18px */
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.8;
   transition: all 0.3s ease;
+  padding: 0.75rem 1rem; /* 增加行高和内边距 */
+  word-wrap: break-word; /* 长单词换行 */
+  overflow-wrap: break-word; /* 确保文本换行 */
 }
 
 .lyric-line:hover {
@@ -625,8 +535,9 @@ function onLineClick(line: { time: number; text: string }) {
 
 .lyric-active {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.5rem; /* 24px */
   opacity: 1 !important;
+  color: var(--color-primary, #3b82f6); /* 使用主题色 */
 }
 
 .hide-scrollbar {
@@ -663,5 +574,128 @@ function onLineClick(line: { time: number; text: string }) {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.5);
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1536px) {
+  .vinyl-wrapper {
+    width: 340px;
+    height: 340px;
+  }
+
+  .vinyl-base {
+    padding: 35px;
+  }
+
+  .vinyl-record {
+    width: 270px;
+    height: 270px;
+  }
+
+  .vinyl-cover {
+    width: 170px;
+    height: 170px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .vinyl-wrapper {
+    width: 320px;
+    height: 320px;
+  }
+
+  .vinyl-base {
+    padding: 30px;
+  }
+
+  .vinyl-record {
+    width: 260px;
+    height: 260px;
+  }
+
+  .vinyl-cover {
+    width: 160px;
+    height: 160px;
+  }
+
+  .tonearm {
+    width: 160px;
+    height: 160px;
+  }
+
+  .tonearm-arm {
+    width: 110px;
+  }
+
+  .lyric-line {
+    font-size: 1rem; /* 16px */
+  }
+
+  .lyric-active {
+    font-size: 1.375rem; /* 22px */
+  }
+}
+
+@media (max-width: 1024px) {
+  .vinyl-wrapper {
+    width: 280px;
+    height: 280px;
+  }
+
+  .vinyl-base {
+    padding: 25px;
+  }
+
+  .vinyl-record {
+    width: 230px;
+    height: 230px;
+  }
+
+  .vinyl-cover {
+    width: 140px;
+    height: 140px;
+  }
+
+  .tonearm {
+    width: 150px;
+    height: 150px;
+    right: -30px;
+  }
+
+  .tonearm-arm {
+    width: 100px;
+  }
+
+  .lyrics-section {
+    padding: 1.5rem;
+  }
+
+  .lyric-line {
+    font-size: 0.9375rem; /* 15px */
+  }
+
+  .lyric-active {
+    font-size: 1.25rem; /* 20px */
+  }
+}
+
+@media (max-width: 768px) {
+  .vinyl-section {
+    display: none;
+  }
+
+  .lyrics-section {
+    width: 100%;
+    height: 100vh; /* 移动端占满全屏高度 */
+    padding: 1rem;
+  }
+
+  .lyric-line {
+    font-size: 0.875rem; /* 14px */
+  }
+
+  .lyric-active {
+    font-size: 1.125rem; /* 18px */
+  }
 }
 </style>
