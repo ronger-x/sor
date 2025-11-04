@@ -537,7 +537,6 @@ function onLineClick(line: { time: number; text: string }) {
   font-weight: 700;
   font-size: 1.5rem; /* 24px */
   opacity: 1 !important;
-  color: var(--color-primary, #3b82f6); /* 使用主题色 */
 }
 
 .hide-scrollbar {
