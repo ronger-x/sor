@@ -8,6 +8,18 @@ export interface Song {
   duration?: number
 }
 
+export interface Artist {
+  artist: string
+  count: number
+  cover: string
+}
+
+export interface Album {
+  album: string
+  count: number
+  cover: string
+}
+
 export interface Playlist {
   id: string
   name: string

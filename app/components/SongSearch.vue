@@ -47,14 +47,21 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useSongsStore } from '@/stores/songs'
+import { useRouter } from 'vue-router'
 import type { Song } from '@/types'
 
 const songsStore = useSongsStore()
 const router = useRouter()
+
+// 组件状态
 const isOpen = ref(false)
 const searchTerm = ref('')
 const searchSongs = ref<Song[]>([])
-const searchLoading = ref(false) // 搜索专用加载状态
+const searchLoading = ref(false)
+
+// Store 状态
+const currentPlaylistId = computed(() => songsStore.currentPlaylistId)
+const lyricsModal = computed(() => songsStore.lyricsModal)
 
 // 将歌曲转换为 CommandPalette 所需的格式
 const songGroups = computed(() => {
@@ -80,12 +87,14 @@ const songGroups = computed(() => {
       id: 'songs',
       label: searchTerm.value ? `搜索 "${searchTerm.value}" 的结果` : '歌曲',
       items,
-      ignoreFilter: true // 使用我们自己的搜索逻辑
+      ignoreFilter: true
     }
   ]
 })
 
-// 监听搜索词变化，自动触发搜索
+/**
+ * 监听搜索词变化，自动触发搜索
+ */
 watch(searchTerm, async newValue => {
   if (newValue) {
     searchLoading.value = true
@@ -97,13 +106,15 @@ watch(searchTerm, async newValue => {
   }
 })
 
-// 处理歌曲选择
+/**
+ * 处理歌曲选择
+ */
 const handleSongSelect = async (song: any) => {
   // 关闭弹窗
   isOpen.value = false
 
   // 如果在歌词页面，返回首页
-  if (songsStore.lyricsModal) {
+  if (lyricsModal.value) {
     songsStore.lyricsModal = false
     await router.push('/')
   }
@@ -111,7 +122,7 @@ const handleSongSelect = async (song: any) => {
   // 播放选中的歌曲
   if (song && song.url) {
     const songIndex = searchSongs.value.findIndex(s => s.url === song.url)
-    if (!songsStore.currentPlaylistId || songsStore.currentPlaylistId === 'default') {
+    if (!currentPlaylistId.value || currentPlaylistId.value === 'default') {
       songsStore.setPlaylist('default', '当前播放', searchSongs.value)
     }
     // 然后播放歌曲
@@ -122,7 +133,9 @@ const handleSongSelect = async (song: any) => {
   searchTerm.value = ''
 }
 
-// 监听弹窗关闭，清空搜索词
+/**
+ * 监听弹窗关闭，清空搜索词
+ */
 watch(isOpen, newValue => {
   if (!newValue) {
     searchTerm.value = ''

@@ -324,7 +324,7 @@ import { useVolumeControl } from '@/composables/useVolumeControl'
 const songsStore = useSongsStore()
 const router = useRouter()
 
-// ⭐ 本地 ref，只用于获取 DOM 元素
+// ========== 本地状态 ==========
 const audioElement = ref<HTMLAudioElement | null>(null)
 const showVolume = ref(false)
 const isSeeking = ref(false)
@@ -335,9 +335,7 @@ const mobilePlaylistPopover = ref()
 const playlistContainer = ref<HTMLDivElement | null>(null)
 const mobilePlaylistContainer = ref<HTMLDivElement | null>(null)
 
-const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
-
-// 使用 store 中的状态
+// ========== Store 状态（使用 computed 确保响应式） ==========
 const currentSong = computed(() => songsStore.currentSong)
 const currentTime = computed(() => songsStore.currentTime)
 const duration = computed(() => songsStore.duration)
@@ -348,18 +346,23 @@ const muted = computed(() => songsStore.muted)
 const bufferedPercent = computed(() => songsStore.bufferedPercent)
 const playMode = computed(() => songsStore.playMode)
 const currentPlaylist = computed(() => songsStore.currentPlaylist)
+const isPlaying = computed(() => songsStore.isPlaying)
 
-// 当前播放列表的歌曲数组
+// ========== 派生状态 ==========
+const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
 const playlistSongs = computed(() => currentPlaylist.value?.items || [])
+const playPauseIcon = computed(() => (isPlaying.value ? 'i-lucide-pause' : 'i-lucide-play'))
 
-const playPauseIcon = computed(() => (songsStore.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'))
-
-// 使用组合式函数
+// ========== Composables ==========
 const { formatTime } = useFormatTime()
 const { playModeIcon, playModeLabel } = usePlayModeIcon(playMode)
 const { volumeIcon, volumeLabel } = useVolumeControl(volume, muted)
 
-// ⭐ 组件挂载时初始化 audio 元素到 store
+// ========== 生命周期 ==========
+
+/**
+ * 组件挂载时初始化 audio 元素到 store
+ */
 onMounted(() => {
   if (audioElement.value) {
     songsStore.initAudio(audioElement.value)
@@ -369,14 +372,17 @@ onMounted(() => {
   }
 })
 
-// ⭐ 组件卸载时清理资源
+/**
+ * 组件卸载时清理资源
+ */
 onBeforeUnmount(() => {
   songsStore.stopLyricSync()
   // 注意：不要调用 dispose()，因为可能有其他组件还在使用
   // dispose 应该在应用级别（app.vue）调用
 })
 
-// ⭐ Audio 事件处理器
+// ========== Audio 事件处理器 ==========
+
 function onTimeUpdate() {
   const audio = songsStore.getAudio()
   if (!audio || isSeeking.value) return
@@ -407,7 +413,8 @@ function onAudioError(event: Event) {
   songsStore.isPlaying = false
 }
 
-// ⭐ 用户交互处理器
+// ========== 用户交互处理器 ==========
+
 function onProgressChange(value: number | undefined) {
   if (value === undefined) return
   isSeeking.value = true
@@ -455,7 +462,8 @@ function showLyrics() {
   }
 }
 
-// 播放列表相关函数
+// ========== 播放列表相关函数 ==========
+
 function playFromList(index: number) {
   songsStore.playSong(index)
 }
@@ -503,6 +511,8 @@ function onPlaylistOpen() {
   })
 }
 
+// ========== 样式类 ==========
+
 const containerClasses = computed(() => [
   'fixed',
   'bottom-0',
@@ -531,11 +541,9 @@ const centerControlClasses = computed(() => [
 
 // 进度条容器样式 - 根据设备类型调整宽度
 const progressContainerClasses = computed(() => [
-  'mx-auto', // 居中对齐
-  // 桌面端：限制最大宽度，与按钮组对齐
-  'md:max-w-[400px]', // 5个按钮的宽度 (约 40px * 5 + gap)
-  'lg:max-w-[450px]', // 大屏幕稍微放宽
-  // 移动端：使用全宽但留出边距
+  'mx-auto',
+  'md:max-w-[400px]',
+  'lg:max-w-[450px]',
   'max-w-full'
 ])
 </script>

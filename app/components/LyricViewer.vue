@@ -5,15 +5,18 @@
       <!-- 加载状态 -->
       <div v-if="lyricsLoading" class="flex items-center justify-center h-full">
         <div class="text-center">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl mb-2"/>
+          <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl mb-2" />
           <p class="text-sm text-gray-500">加载歌词中...</p>
         </div>
       </div>
 
       <!-- 无歌词状态 -->
-      <div v-else-if="!lyrics || lyrics.length === 0" class="flex items-center justify-center h-full">
+      <div
+        v-else-if="!lyrics || lyrics.length === 0"
+        class="flex items-center justify-center h-full"
+      >
         <div class="text-center text-gray-500">
-          <UIcon name="i-lucide-music" class="text-4xl mb-2"/>
+          <UIcon name="i-lucide-music" class="text-4xl mb-2" />
           <p>暂无歌词</p>
         </div>
       </div>
@@ -29,18 +32,17 @@
         ]"
         @click.stop=""
       >
-        <template v-for="(line, i) in lyrics"
-                  :key="i">
+        <template v-for="(line, i) in lyrics" :key="i">
           <div
             v-if="line.text"
             :ref="el => setLineRef(i, el)"
             :class="[
-            'lyric-line py-2 transition-all duration-300 cursor-pointer',
-            {
-              'text-primary lyric-active': i === currentLine,
-              'opacity-50': i !== currentLine
-            }
-          ]"
+              'lyric-line py-2 transition-all duration-300 cursor-pointer',
+              {
+                'text-primary lyric-active': i === currentLine,
+                'opacity-50': i !== currentLine
+              }
+            ]"
             @click="onLineClick(line)"
             role="button"
             tabindex="0"
@@ -57,20 +59,21 @@
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, onBeforeUnmount, computed, nextTick, watch} from 'vue'
-import {useSongsStore} from '@/stores/songs'
-import {useRouter} from 'vue-router'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
+import { useSongsStore } from '@/stores/songs'
+import { useRouter } from 'vue-router'
 
 const songsStore = useSongsStore()
 const router = useRouter()
 
-// Store 状态
+// ========== Store 状态（使用 computed 确保响应式） ==========
 const lyrics = computed(() => songsStore.parsedLyrics)
 const currentLine = computed(() => songsStore.currentLyricLine)
 const lyricsLoading = computed(() => songsStore.lyricsLoading)
 const currentSong = computed(() => songsStore.currentSong)
+const isPlaying = computed(() => songsStore.isPlaying)
 
-// 组件状态
+// ========== 组件状态 ==========
 const hideScrollbar = ref(true)
 const autoScroll = ref(true)
 const centerOnActive = ref(true)
@@ -81,7 +84,9 @@ const isScrolling = ref(false)
 let scrollTimeout: number | null = null
 let scrollHandler: (() => void) | null = null
 
-// 设置歌词行的 ref
+/**
+ * 设置歌词行的 ref
+ */
 function setLineRef(index: number, el: any) {
   if (el) {
     lineRefs.value.set(index, el as HTMLElement)
@@ -90,12 +95,16 @@ function setLineRef(index: number, el: any) {
   }
 }
 
-// 返回首页
+/**
+ * 返回首页
+ */
 function goHome() {
   router.push('/')
 }
 
-// 滚动到指定歌词行
+/**
+ * 滚动到指定歌词行
+ */
 async function scrollToLine(idx: number) {
   if (!autoScroll.value || !container.value) return
   await nextTick()
@@ -104,15 +113,17 @@ async function scrollToLine(idx: number) {
   if (!el) return
 
   if (centerOnActive.value) {
-    el.scrollIntoView({behavior: 'smooth', block: 'center'})
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } else {
-    el.scrollIntoView({behavior: 'smooth', block: 'nearest'})
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   showScrollbarTemporary()
 }
 
-// 临时显示滚动条
+/**
+ * 临时显示滚动条
+ */
 function showScrollbarTemporary() {
   isScrolling.value = true
   if (scrollTimeout) {
@@ -124,29 +135,44 @@ function showScrollbarTemporary() {
   }, 800) as unknown as number
 }
 
-// 监听当前歌词行变化，自动滚动
-watch(currentLine, (newIdx) => {
-  if (newIdx !== undefined && newIdx >= 0) {
-    scrollToLine(newIdx)
-  }
-}, {immediate: false})
-
-// 监听歌曲变化，重新加载歌词
-watch(() => songsStore.currentSong, async (newSong, oldSong) => {
-  if (newSong && newSong !== oldSong) {
-    // 重置滚动位置
-    if (container.value) {
-      container.value.scrollTop = 0
+/**
+ * 监听当前歌词行变化，自动滚动
+ */
+watch(
+  currentLine,
+  newIdx => {
+    if (newIdx !== undefined && newIdx >= 0) {
+      scrollToLine(newIdx)
     }
-    lineRefs.value.clear()
+  },
+  { immediate: false }
+)
 
-    // 如果还没有歌词，加载歌词
-    if (lyrics.value.length === 0) {
-      await songsStore.showCurrentLyrics()
+/**
+ * 监听歌曲变化，重新加载歌词
+ */
+watch(
+  currentSong,
+  async (newSong, oldSong) => {
+    if (newSong && newSong !== oldSong) {
+      // 重置滚动位置
+      if (container.value) {
+        container.value.scrollTop = 0
+      }
+      lineRefs.value.clear()
+
+      // 如果还没有歌词，加载歌词
+      if (lyrics.value.length === 0) {
+        await songsStore.showCurrentLyrics()
+      }
     }
-  }
-}, {immediate: true})
+  },
+  { immediate: true }
+)
 
+/**
+ * 组件挂载
+ */
 onMounted(async () => {
   // 确保有当前歌曲
   if (!currentSong.value) {
@@ -163,16 +189,19 @@ onMounted(async () => {
   // 添加滚动监听
   if (container.value) {
     scrollHandler = () => showScrollbarTemporary()
-    container.value.addEventListener('scroll', scrollHandler, {passive: true})
+    container.value.addEventListener('scroll', scrollHandler, { passive: true })
   }
 
   // 确保 audio 元素已初始化并开始同步
   const audio = songsStore.getAudio()
-  if (audio && songsStore.isPlaying) {
+  if (audio && isPlaying.value) {
     songsStore.startLyricSync()
   }
 })
 
+/**
+ * 组件卸载
+ */
 onBeforeUnmount(() => {
   if (container.value && scrollHandler) {
     container.value.removeEventListener('scroll', scrollHandler)
@@ -187,7 +216,9 @@ onBeforeUnmount(() => {
   lineRefs.value.clear()
 })
 
-// 点击歌词行，跳转到对应时间
+/**
+ * 点击歌词行，跳转到对应时间
+ */
 function onLineClick(line: { time: number; text: string }) {
   if (!line || line.time === undefined) return
 
@@ -195,7 +226,7 @@ function onLineClick(line: { time: number; text: string }) {
   songsStore.seekTo(line.time)
 
   // 如果当前是暂停状态，开始播放
-  if (!songsStore.isPlaying) {
+  if (!isPlaying.value) {
     songsStore.togglePlay()
   }
 }
