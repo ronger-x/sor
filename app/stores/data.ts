@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Album, Artist, Song } from '@/types'
-import artists from '~~/server/api/artists'
-import albums from '~~/server/api/albums'
 
 /**
  * 数据获取 Store
@@ -124,8 +122,8 @@ export const useDataStore = defineStore('data', () => {
     try {
       const [songsResult, artistsResult, albumsResult] = await Promise.all([
         searchSongs('', true, undefined, undefined, 50),
-        searchArtists('', true, 12),
-        searchAlbums('', true, 12)
+        searchArtists('', true),
+        searchAlbums('', true)
       ])
       songs.value = songsResult
       artists.value = artistsResult
@@ -134,20 +132,6 @@ export const useDataStore = defineStore('data', () => {
     } catch (e) {
       console.error('Failed to fetch home data:', e)
       return { songs: [], artists: [], albums: [] }
-    } finally {
-      homeLoading.value = false
-    }
-  }
-
-  /**
-   * 获取默认歌手列表
-   */
-  async function fetchDefaultArtists() {
-    homeLoading.value = true
-    try {
-      const result = await searchArtists('', true, 12)
-      artists.value = result
-      return result
     } finally {
       homeLoading.value = false
     }
@@ -194,20 +178,6 @@ export const useDataStore = defineStore('data', () => {
       return result
     } finally {
       artistsLoading.value = false
-    }
-  }
-
-  /**
-   * 获取默认专辑列表
-   */
-  async function fetchDefaultAlbums() {
-    homeLoading.value = true
-    try {
-      const result = await searchAlbums('', true, 12)
-      albums.value = result
-      return result
-    } finally {
-      homeLoading.value = false
     }
   }
 
@@ -270,8 +240,6 @@ export const useDataStore = defineStore('data', () => {
     searchAlbums,
     searchArtists,
     fetchHomeData,
-    fetchDefaultArtists,
-    fetchDefaultAlbums,
     loadAllArtists,
     loadAllAlbums
   }

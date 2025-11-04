@@ -430,8 +430,6 @@ export const useSongsStore = defineStore('songs', () => {
     searchSongs: dataStore.searchSongs,
     searchAlbums: dataStore.searchAlbums,
     searchArtists: dataStore.searchArtists,
-    fetchDefaultArtists: dataStore.fetchDefaultArtists,
-    fetchDefaultAlbums: dataStore.fetchDefaultAlbums,
     loadAllArtists: dataStore.loadAllArtists,
     loadAllAlbums: dataStore.loadAllAlbums,
 
