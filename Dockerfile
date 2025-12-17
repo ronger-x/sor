@@ -5,7 +5,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # 复制依赖文件
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # 安装 pnpm
 RUN npm install -g pnpm

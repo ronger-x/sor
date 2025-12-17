@@ -71,7 +71,7 @@
             aria-label="下一曲"
             title="下一曲"
           /><!-- Playlist Button -->
-          <UPopover ref="playlistPopover" @update:open="onPlaylistOpen">
+          <UPopover>
             <UButton
               icon="i-lucide-list-music"
               variant="ghost"
@@ -98,6 +98,7 @@
                   <div
                     v-for="(s, i) in playlistSongs"
                     :key="s.url"
+                    :data-current="currentSong?.url === s.url"
                     class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
                     @click.stop="playFromList(i)"
@@ -199,7 +200,7 @@
             title="下一曲"
           />
           <!-- Mobile Playlist Button -->
-          <UPopover ref="mobilePlaylistPopover" @update:open="onPlaylistOpen">
+          <UPopover>
             <UButton
               icon="i-lucide-list-music"
               variant="ghost"
@@ -227,6 +228,7 @@
                   <div
                     v-for="(s, i) in playlistSongs"
                     :key="s.url"
+                    :data-current="currentSong?.url === s.url"
                     class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
                     :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
                     @click.stop="playFromList(i)"
@@ -330,8 +332,6 @@ const showVolume = ref(false)
 const isSeeking = ref(false)
 
 // Playlist refs
-const playlistPopover = ref()
-const mobilePlaylistPopover = ref()
 const playlistContainer = ref<HTMLDivElement | null>(null)
 const mobilePlaylistContainer = ref<HTMLDivElement | null>(null)
 
@@ -490,25 +490,6 @@ function cyclePlayMode() {
   if (nextMode) {
     songsStore.setPlayMode(nextMode)
   }
-}
-
-function onPlaylistOpen() {
-  // 滚动当前播放项到视图中心
-  requestAnimationFrame(() => {
-    const containers = [playlistContainer.value, mobilePlaylistContainer.value].filter(Boolean)
-    containers.forEach(container => {
-      if (!container) return
-      // 使用属性选择器来查找当前播放的歌曲
-      const activeItem = container.querySelector('[class*="ring-1"]') as HTMLElement
-      if (activeItem) {
-        const containerHeight = container.clientHeight
-        const itemTop = activeItem.offsetTop
-        const itemHeight = activeItem.clientHeight
-        const scrollTop = itemTop - containerHeight / 2 + itemHeight / 2
-        container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
-      }
-    })
-  })
 }
 
 // ========== 样式类 ==========
