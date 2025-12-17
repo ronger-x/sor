@@ -27,7 +27,10 @@
           />
 
           <!-- Volume button -->
-          <UPopover v-model:open="showVolume" placement="top-end">
+          <UPopover modal :content="{
+            align: 'center',
+            side: 'top'
+          }">
             <UButton
               :icon="volumeIcon"
               variant="ghost"
@@ -70,7 +73,10 @@
             aria-label="下一曲"
             title="下一曲"
           /><!-- Playlist Button -->
-          <UPopover v-model:open="showPlaylist">
+          <UPopover modal :content="{
+            align: 'center',
+            side: 'top'
+          }">
             <UButton
               icon="i-lucide-list-music"
               variant="ghost"
@@ -338,14 +344,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSongsStore } from '@/stores/songs'
-import { useFormatTime } from '@/composables/useFormatTime'
-import { usePlayModeIcon } from '@/composables/usePlayModeIcon'
-import { useVolumeControl } from '@/composables/useVolumeControl'
-import { useVirtualList } from '@/composables/useVirtualList'
-import type { Song } from '@/types'
+import {computed, ref, onMounted, onBeforeUnmount, watch, nextTick} from 'vue'
+import {useRouter} from 'vue-router'
+import {useSongsStore} from '@/stores/songs'
+import {useFormatTime} from '@/composables/useFormatTime'
+import {usePlayModeIcon} from '@/composables/usePlayModeIcon'
+import {useVolumeControl} from '@/composables/useVolumeControl'
+import {useVirtualList} from '@/composables/useVirtualList'
+import type {Song} from '@/types'
 
 const songsStore = useSongsStore()
 const router = useRouter()
@@ -408,9 +414,9 @@ const mobileTotalHeight = computed<number>(() => mobileVirtualList.totalHeight.v
 const mobileOffsetY = computed<number>(() => mobileVirtualList.offsetY.value)
 
 // ========== Composables ==========
-const { formatTime } = useFormatTime()
-const { playModeIcon, playModeLabel } = usePlayModeIcon(playMode)
-const { volumeIcon, volumeLabel } = useVolumeControl(volume, muted)
+const {formatTime} = useFormatTime()
+const {playModeIcon, playModeLabel} = usePlayModeIcon(playMode)
+const {volumeIcon, volumeLabel} = useVolumeControl(volume, muted)
 
 // ========== 生命周期 ==========
 
