@@ -98,16 +98,13 @@
                   class="max-h-64 overflow-auto pr-1"
                   @scroll="desktopVirtualList.onScroll"
                 >
-                  <div
-                    class="relative"
-                    :style="{ height: `${desktopVirtualList.totalHeight.value}px` }"
-                  >
+                  <div class="relative" :style="{ height: `${desktopTotalHeight}px` }">
                     <div
                       class="absolute inset-x-0 space-y-1"
-                      :style="{ transform: `translateY(${desktopVirtualList.offsetY.value}px)` }"
+                      :style="{ transform: `translateY(${desktopOffsetY}px)` }"
                     >
                       <div
-                        v-for="{ item: s, index: i } in desktopVirtualList.visibleItems.value"
+                        v-for="{ item: s, index: i } in desktopVisibleItems"
                         :key="s.url"
                         :data-current="currentSong?.url === s.url"
                         class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
@@ -243,16 +240,13 @@
                   class="max-h-48 overflow-auto pr-1"
                   @scroll="mobileVirtualList.onScroll"
                 >
-                  <div
-                    class="relative"
-                    :style="{ height: `${mobileVirtualList.totalHeight.value}px` }"
-                  >
+                  <div class="relative" :style="{ height: `${mobileTotalHeight}px` }">
                     <div
                       class="absolute inset-x-0 space-y-1"
-                      :style="{ transform: `translateY(${mobileVirtualList.offsetY.value}px)` }"
+                      :style="{ transform: `translateY(${mobileOffsetY}px)` }"
                     >
                       <div
-                        v-for="{ item: s, index: i } in mobileVirtualList.visibleItems.value"
+                        v-for="{ item: s, index: i } in mobileVisibleItems"
                         :key="s.url"
                         :data-current="currentSong?.url === s.url"
                         class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
@@ -353,6 +347,7 @@ import { useFormatTime } from '@/composables/useFormatTime'
 import { usePlayModeIcon } from '@/composables/usePlayModeIcon'
 import { useVolumeControl } from '@/composables/useVolumeControl'
 import { useVirtualList } from '@/composables/useVirtualList'
+import type { Song } from '@/types'
 
 const songsStore = useSongsStore()
 const router = useRouter()
@@ -400,6 +395,19 @@ const mobileVirtualList = useVirtualList(playlistSongs, {
   containerHeight: 192, // max-h-48 = 12rem = 192px
   overscan: 5
 })
+
+// 为模板创建包装的计算属性，避免直接访问 .value
+const desktopVisibleItems = computed<Array<{ item: Song; index: number }>>(
+  () => desktopVirtualList.visibleItems.value
+)
+const desktopTotalHeight = computed<number>(() => desktopVirtualList.totalHeight.value)
+const desktopOffsetY = computed<number>(() => desktopVirtualList.offsetY.value)
+
+const mobileVisibleItems = computed<Array<{ item: Song; index: number }>>(
+  () => mobileVirtualList.visibleItems.value
+)
+const mobileTotalHeight = computed<number>(() => mobileVirtualList.totalHeight.value)
+const mobileOffsetY = computed<number>(() => mobileVirtualList.offsetY.value)
 
 // ========== Composables ==========
 const { formatTime } = useFormatTime()
