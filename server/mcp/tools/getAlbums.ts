@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { defineMcpTool } from '@nuxtjs/mcp-toolkit'
 
 export default defineMcpTool({
   name: 'getAlbums',
