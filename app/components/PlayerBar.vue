@@ -71,11 +71,10 @@
             aria-label="下一曲"
             title="下一曲"
           /><!-- Playlist Button -->
-          <UPopover>
+          <UPopover v-model:open="showPlaylist">
             <UButton
               icon="i-lucide-list-music"
               variant="ghost"
-              @click.stop
               aria-label="播放列表"
               title="播放列表"
             />
@@ -94,36 +93,52 @@
                     :disabled="!playlistSongs.length"
                   />
                 </div>
-                <div ref="playlistContainer" class="max-h-64 overflow-auto space-y-1 pr-1">
+                <div
+                  ref="playlistContainer"
+                  class="max-h-64 overflow-auto pr-1"
+                  @scroll="desktopVirtualList.onScroll"
+                >
                   <div
-                    v-for="(s, i) in playlistSongs"
-                    :key="s.url"
-                    :data-current="currentSong?.url === s.url"
-                    class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
-                    :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
-                    @click.stop="playFromList(i)"
+                    class="relative"
+                    :style="{ height: `${desktopVirtualList.totalHeight.value}px` }"
                   >
-                    <NuxtImg
-                      :src="s.cover"
-                      :alt="s.name"
-                      width="32"
-                      height="32"
-                      loading="lazy"
-                      class="w-8 h-8 rounded object-cover shrink-0"
-                    />
-                    <div class="flex-1 min-w-0">
-                      <div class="font-medium truncate">{{ s.name }}</div>
-                      <div class="text-xs opacity-60 truncate">{{ s.artist }}</div>
+                    <div
+                      class="absolute inset-x-0 space-y-1"
+                      :style="{ transform: `translateY(${desktopVirtualList.offsetY.value}px)` }"
+                    >
+                      <div
+                        v-for="{ item: s, index: i } in desktopVirtualList.visibleItems.value"
+                        :key="s.url"
+                        :data-current="currentSong?.url === s.url"
+                        class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1.5 group transition-colors"
+                        :class="{
+                          'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url
+                        }"
+                        @click.stop="playFromList(i)"
+                      >
+                        <NuxtImg
+                          :src="s.cover"
+                          :alt="s.name"
+                          width="32"
+                          height="32"
+                          loading="lazy"
+                          class="w-8 h-8 rounded object-cover shrink-0"
+                        />
+                        <div class="flex-1 min-w-0">
+                          <div class="font-medium truncate">{{ s.name }}</div>
+                          <div class="text-xs opacity-60 truncate">{{ s.artist }}</div>
+                        </div>
+                        <UButton
+                          v-if="currentSong?.url !== s.url"
+                          icon="i-lucide-x"
+                          size="xs"
+                          color="neutral"
+                          variant="ghost"
+                          class="opacity-0 group-hover:opacity-100 transition-opacity"
+                          @click.stop="removeAt(i)"
+                        />
+                      </div>
                     </div>
-                    <UButton
-                      v-if="currentSong?.url !== s.url"
-                      icon="i-lucide-x"
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      class="opacity-0 group-hover:opacity-100 transition-opacity"
-                      @click.stop="removeAt(i)"
-                    />
                   </div>
                 </div>
               </div>
@@ -200,12 +215,11 @@
             title="下一曲"
           />
           <!-- Mobile Playlist Button -->
-          <UPopover>
+          <UPopover v-model:open="showMobilePlaylist">
             <UButton
               icon="i-lucide-list-music"
               variant="ghost"
               size="sm"
-              @click.stop
               aria-label="播放列表"
               title="播放列表"
             />
@@ -224,33 +238,49 @@
                     :disabled="!playlistSongs.length"
                   />
                 </div>
-                <div ref="mobilePlaylistContainer" class="max-h-48 overflow-auto space-y-1 pr-1">
+                <div
+                  ref="mobilePlaylistContainer"
+                  class="max-h-48 overflow-auto pr-1"
+                  @scroll="mobileVirtualList.onScroll"
+                >
                   <div
-                    v-for="(s, i) in playlistSongs"
-                    :key="s.url"
-                    :data-current="currentSong?.url === s.url"
-                    class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
-                    :class="{ 'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url }"
-                    @click.stop="playFromList(i)"
+                    class="relative"
+                    :style="{ height: `${mobileVirtualList.totalHeight.value}px` }"
                   >
-                    <NuxtImg
-                      :src="s.cover"
-                      :alt="s.name"
-                      width="24"
-                      height="24"
-                      loading="lazy"
-                      class="w-6 h-6 rounded object-cover shrink-0"
-                    />
-                    <span class="truncate flex-1">{{ s.name }}</span>
-                    <UButton
-                      v-if="currentSong?.url !== s.url"
-                      icon="i-lucide-x"
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      class="opacity-0 group-hover:opacity-100 transition-opacity"
-                      @click.stop="removeAt(i)"
-                    />
+                    <div
+                      class="absolute inset-x-0 space-y-1"
+                      :style="{ transform: `translateY(${mobileVirtualList.offsetY.value}px)` }"
+                    >
+                      <div
+                        v-for="{ item: s, index: i } in mobileVirtualList.visibleItems.value"
+                        :key="s.url"
+                        :data-current="currentSong?.url === s.url"
+                        class="flex items-center gap-2 text-xs cursor-pointer hover:bg-accent/10 rounded px-2 py-1 group transition-colors"
+                        :class="{
+                          'bg-primary/15 ring-1 ring-primary/30': currentSong?.url === s.url
+                        }"
+                        @click.stop="playFromList(i)"
+                      >
+                        <NuxtImg
+                          :src="s.cover"
+                          :alt="s.name"
+                          width="24"
+                          height="24"
+                          loading="lazy"
+                          class="w-6 h-6 rounded object-cover shrink-0"
+                        />
+                        <span class="truncate flex-1">{{ s.name }}</span>
+                        <UButton
+                          v-if="currentSong?.url !== s.url"
+                          icon="i-lucide-x"
+                          size="xs"
+                          color="neutral"
+                          variant="ghost"
+                          class="opacity-0 group-hover:opacity-100 transition-opacity"
+                          @click.stop="removeAt(i)"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -316,12 +346,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSongsStore } from '@/stores/songs'
 import { useFormatTime } from '@/composables/useFormatTime'
 import { usePlayModeIcon } from '@/composables/usePlayModeIcon'
 import { useVolumeControl } from '@/composables/useVolumeControl'
+import { useVirtualList } from '@/composables/useVirtualList'
 
 const songsStore = useSongsStore()
 const router = useRouter()
@@ -330,6 +361,8 @@ const router = useRouter()
 const audioElement = ref<HTMLAudioElement | null>(null)
 const showVolume = ref(false)
 const isSeeking = ref(false)
+const showPlaylist = ref(false)
+const showMobilePlaylist = ref(false)
 
 // Playlist refs
 const playlistContainer = ref<HTMLDivElement | null>(null)
@@ -352,6 +385,21 @@ const isPlaying = computed(() => songsStore.isPlaying)
 const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
 const playlistSongs = computed(() => currentPlaylist.value?.items || [])
 const playPauseIcon = computed(() => (isPlaying.value ? 'i-lucide-pause' : 'i-lucide-play'))
+
+// ========== 虚拟滚动 ==========
+// 桌面版虚拟列表 - 每项高度约 48px (32px + padding + gap)
+const desktopVirtualList = useVirtualList(playlistSongs, {
+  itemHeight: 48,
+  containerHeight: 256, // max-h-64 = 16rem = 256px
+  overscan: 5
+})
+
+// 移动版虚拟列表 - 每项高度约 40px (24px + padding + gap)
+const mobileVirtualList = useVirtualList(playlistSongs, {
+  itemHeight: 40,
+  containerHeight: 192, // max-h-48 = 12rem = 192px
+  overscan: 5
+})
 
 // ========== Composables ==========
 const { formatTime } = useFormatTime()
@@ -491,6 +539,31 @@ function cyclePlayMode() {
     songsStore.setPlayMode(nextMode)
   }
 }
+
+// ========== 虚拟滚动相关 ==========
+
+// 当歌单打开时，滚动到当前播放的歌曲
+watch(showPlaylist, async isOpen => {
+  if (isOpen && currentSong.value) {
+    await nextTick()
+    const currentIndex = playlistSongs.value.findIndex(s => s.url === currentSong.value?.url)
+    if (currentIndex !== -1 && playlistContainer.value) {
+      const scrollTop = desktopVirtualList.scrollToIndex(currentIndex)
+      playlistContainer.value.scrollTop = scrollTop
+    }
+  }
+})
+
+watch(showMobilePlaylist, async isOpen => {
+  if (isOpen && currentSong.value) {
+    await nextTick()
+    const currentIndex = playlistSongs.value.findIndex(s => s.url === currentSong.value?.url)
+    if (currentIndex !== -1 && mobilePlaylistContainer.value) {
+      const scrollTop = mobileVirtualList.scrollToIndex(currentIndex)
+      mobilePlaylistContainer.value.scrollTop = scrollTop
+    }
+  }
+})
 
 // ========== 样式类 ==========
 
