@@ -10,25 +10,26 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.66",
-    "@nuxt/image": "1.11.0",
-    "@nuxt/ui": "^4.1.0",
-    "@nuxtjs/device": "3.2.4",
-    "@pinia/nuxt": "^0.11.2",
-    "@unovis/ts": "^1.6.0",
-    "@unovis/vue": "^1.6.0",
+    "@iconify-json/lucide": "^1.2.75",
+    "@nuxt/image": "^2.0.0",
+    "@nuxt/ui": "^4.2.1",
+    "@nuxtjs/device": "^4.0.0",
+    "@nuxtjs/mcp-toolkit": "0.5.2",
+    "@pinia/nuxt": "^0.11.3",
+    "@unovis/ts": "^1.6.2",
+    "@unovis/vue": "^1.6.2",
     "@vueuse/nuxt": "^13.9.0",
-    "nuxt": "^4.2.0",
-    "pinia": "^3.0.3"
+    "nuxt": "^4.2.2",
+    "pinia": "^3.0.4",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.9.0",
+    "@nuxt/eslint": "^1.12.1",
     "@types/node": "^24.9.1",
-    "eslint": "^9.35.0",
+    "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "tailwindcss": "^4.1.16",
-    "typescript": "^5.9.2",
-    "vue-tsc": "^3.0.7"
-  },
-  "packageManager": "pnpm@10.17.0+sha512.fce8a3dd29a4ed2ec566fb53efbb04d8c44a0f05bc6f24a73046910fb9c3ce7afa35a0980500668fa3573345bd644644fa98338fa168235c80f4aa17aa17fbef"
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.1.8"
+  }
 }
