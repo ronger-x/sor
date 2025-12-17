@@ -27,11 +27,10 @@
           />
 
           <!-- Volume button -->
-          <UPopover v-model:open="showVolume" placement="top-end">
+          <UPopover v-model:open="showVolume" :content="{ side: 'top', align: 'end' }">
             <UButton
               :icon="volumeIcon"
               variant="ghost"
-              @click.stop
               :aria-label="volumeLabel"
               :title="volumeLabel"
               :aria-expanded="showVolume"
@@ -163,12 +162,11 @@
           />
 
           <!-- Mobile: volume button before lyrics -->
-          <UPopover v-model:open="showVolume" placement="top-end">
+          <UPopover v-model:open="showVolume" :content="{ side: 'top', align: 'end' }">
             <UButton
               :icon="volumeIcon"
               variant="ghost"
               size="sm"
-              @click.stop
               :aria-label="volumeLabel"
               :title="volumeLabel"
               :aria-expanded="showVolume"

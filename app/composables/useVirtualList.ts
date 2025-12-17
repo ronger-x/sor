@@ -16,11 +16,19 @@ export function useVirtualList<T>(items: Ref<T[]>, options: UseVirtualListOption
 
   // 计算当前可见的起始和结束索引
   const startIndex = computed(() => {
+    // 如果列表项数量少，直接返回0
+    if (items.value.length <= visibleCount + overscan * 2) {
+      return 0
+    }
     const index = Math.floor(scrollTop.value / itemHeight)
     return Math.max(0, index - overscan)
   })
 
   const endIndex = computed(() => {
+    // 如果列表项数量少，直接返回全部
+    if (items.value.length <= visibleCount + overscan * 2) {
+      return items.value.length
+    }
     const index = Math.ceil((scrollTop.value + containerHeight) / itemHeight)
     return Math.min(items.value.length, index + overscan)
   })
