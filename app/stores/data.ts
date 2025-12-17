@@ -59,11 +59,11 @@ export const useDataStore = defineStore('data', () => {
   /**
    * 搜索专辑
    */
-  async function searchAlbums(album?: string, random?: boolean, limit?: number, offset?: number) {
+  async function searchAlbums(q?: string, random?: boolean, limit?: number, offset?: number) {
     let result: Album[] = []
     try {
       const params: Record<string, any> = {
-        album,
+        q,
         random,
         limit: limit || 20,
         offset
