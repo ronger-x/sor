@@ -27,7 +27,7 @@
           />
 
           <!-- Volume button -->
-          <UPopover v-model:open="showVolume" :content="{ side: 'top', align: 'end' }">
+          <UPopover v-model:open="showVolume" placement="top-end">
             <UButton
               :icon="volumeIcon"
               variant="ghost"
