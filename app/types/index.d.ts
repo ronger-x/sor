@@ -8,6 +8,14 @@ export interface Song {
   duration?: number
 }
 
+export interface SongSearchFilters {
+  artist?: string
+  album?: string
+  excludeArtist?: string
+  excludeAlbum?: string
+  includeAssets?: boolean
+}
+
 export interface Artist {
   artist: string
   count: number

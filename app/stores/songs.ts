@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, nextTick, watch } from 'vue'
-import type { Song } from '@/types'
+import type { Song, SongSearchFilters } from '@/types'
 import { useAudioPlayer } from '@/composables/useAudioPlayer'
 import { usePlaylistManagement } from '@/composables/usePlaylistManagement'
 import { useMediaSessionAPI } from '@/composables/useMediaSessionAPI'
@@ -315,8 +315,8 @@ export const useSongsStore = defineStore('songs', () => {
   /**
    * 获取首页数据并初始化
    */
-  async function fetchHomeData() {
-    const { songs } = await dataStore.fetchHomeData()
+  async function fetchHomeData(filters: SongSearchFilters = {}) {
+    const { songs } = await dataStore.fetchHomeData(filters)
     if (songs.length > 0 && !playlistManagement.currentPlaylistId.value) {
       playlistManagement.setPlaylist('default', '默认播放列表', songs)
     }
@@ -435,6 +435,7 @@ export const useSongsStore = defineStore('songs', () => {
 
     // ========== 歌词 ==========
     showCurrentLyrics: () => lyricsStore.showLyrics(currentSong.value?.lrc),
+    closeLyricsModal: lyricsStore.closeLyricsModal,
     seekTo: (timeMs: number) => {
       lyricsStore.seekTo(timeMs, getAudio)
       isPlaying.value = true

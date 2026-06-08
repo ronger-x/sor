@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Album, Artist, Song } from '@/types'
+import type { Album, Artist, Song, SongSearchFilters } from '@/types'
 
 /**
  * 数据获取 Store
@@ -34,19 +34,25 @@ export const useDataStore = defineStore('data', () => {
     album?: string,
     artist?: string,
     limit?: number,
-    offset?: number
+    offset?: number,
+    filters: SongSearchFilters = {}
   ) {
     let result: Song[] = []
     try {
       const params: Record<string, any> = {
         q,
         random,
-        album,
-        artist,
+        album: filters.album ?? album,
+        artist: filters.artist ?? artist,
+        exclude_artist: filters.excludeArtist,
+        exclude_album: filters.excludeAlbum,
+        include_assets: filters.includeAssets,
         limit: limit || 50,
         offset
       }
-      Object.keys(params).forEach(k => params[k] === undefined && delete params[k])
+      Object.keys(params).forEach(k => {
+        if (params[k] === undefined || params[k] === null || params[k] === '') delete params[k]
+      })
       const res = await $fetch('/api/songs', { params })
       result = res as Song[]
     } catch (e) {
@@ -117,11 +123,11 @@ export const useDataStore = defineStore('data', () => {
   /**
    * 获取首页所有数据（歌曲、歌手、专辑）
    */
-  async function fetchHomeData() {
+  async function fetchHomeData(filters: SongSearchFilters = {}) {
     homeLoading.value = true
     try {
       const [songsResult, artistsResult, albumsResult] = await Promise.all([
-        searchSongs('', true, undefined, undefined, 50),
+        searchSongs('', true, undefined, undefined, 50, undefined, filters),
         searchArtists('', true),
         searchAlbums('', true)
       ])
