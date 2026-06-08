@@ -21,6 +21,7 @@
     "@vueuse/nuxt": "^13.9.0",
     "nuxt": "^4.2.2",
     "pinia": "^3.0.4",
+    "uqr": "^0.1.2",
     "zod": "^4.1.13"
   },
   "devDependencies": {

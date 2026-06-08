@@ -4,7 +4,7 @@
       <!-- 歌曲信息和控制按钮 -->
       <div class="relative flex items-center w-full">
         <NuxtImg
-          :src="currentSong?.cover"
+          :src="currentSong?.cover || defaultCover"
           :alt="currentSong?.name"
           width="48"
           height="48"
@@ -119,7 +119,7 @@
                         @click.stop="playFromList(i)"
                       >
                         <NuxtImg
-                          :src="s.cover"
+                          :src="s.cover || defaultCover"
                           :alt="s.name"
                           width="32"
                           height="32"
@@ -147,12 +147,39 @@
             </template>
           </UPopover>
 
+          <SongShareButton
+            :song="currentSong"
+            variant="ghost"
+            aria-label="分享当前歌曲"
+          />
+
+          <UButton
+            :icon="isCurrentSongLiked ? 'i-lucide-heart-off' : 'i-lucide-heart'"
+            variant="ghost"
+            :color="isCurrentSongLiked ? 'error' : 'neutral'"
+            :disabled="!currentSong"
+            @click.stop="toggleCurrentLike"
+            :aria-label="isCurrentSongLiked ? '取消喜欢' : '喜欢当前歌曲'"
+            :title="isCurrentSongLiked ? '取消喜欢' : '喜欢当前歌曲'"
+          />
+
+          <UButton
+            icon="i-lucide-ban"
+            variant="ghost"
+            color="neutral"
+            :disabled="!currentSong"
+            @click.stop="dislikeCurrentSong"
+            aria-label="不想听当前歌曲"
+            title="不想听当前歌曲"
+          />
+
           <UButton
             icon="i-lucide-music-4"
             variant="ghost"
+            :color="songsStore.lyricsPanelOpen ? 'primary' : 'neutral'"
             @click.stop="showLyrics"
-            :aria-label="showLyricPage ? '返回主页' : '查看歌词'"
-            :title="showLyricPage ? '返回主页' : '查看歌词'"
+            :aria-label="songsStore.lyricsPanelOpen ? '关闭歌词' : '打开歌词'"
+            :title="songsStore.lyricsPanelOpen ? '关闭歌词' : '打开歌词'"
           />
         </div>
         <!-- Mobile compact controls: show on non-desktop devices -->
@@ -260,7 +287,7 @@
                         @click.stop="playFromList(i)"
                       >
                         <NuxtImg
-                          :src="s.cover"
+                          :src="s.cover || defaultCover"
                           :alt="s.name"
                           width="24"
                           height="24"
@@ -285,13 +312,32 @@
             </template>
           </UPopover>
 
+          <SongShareButton
+            :song="currentSong"
+            size="sm"
+            variant="ghost"
+            aria-label="分享当前歌曲"
+          />
+
+          <UButton
+            :icon="isCurrentSongLiked ? 'i-lucide-heart-off' : 'i-lucide-heart'"
+            variant="ghost"
+            :color="isCurrentSongLiked ? 'error' : 'neutral'"
+            size="sm"
+            :disabled="!currentSong"
+            @click.stop="toggleCurrentLike"
+            :aria-label="isCurrentSongLiked ? '取消喜欢' : '喜欢当前歌曲'"
+            :title="isCurrentSongLiked ? '取消喜欢' : '喜欢当前歌曲'"
+          />
+
           <UButton
             icon="i-lucide-music-4"
             variant="ghost"
             size="sm"
+            :color="songsStore.lyricsPanelOpen ? 'primary' : 'neutral'"
             @click.stop="showLyrics"
-            :aria-label="showLyricPage ? '返回主页' : '查看歌词'"
-            :title="showLyricPage ? '返回主页' : '查看歌词'"
+            :aria-label="songsStore.lyricsPanelOpen ? '关闭歌词' : '打开歌词'"
+            :title="songsStore.lyricsPanelOpen ? '关闭歌词' : '打开歌词'"
           />
         </div>
       </div>
@@ -345,8 +391,8 @@
 
 <script setup lang="ts">
 import {computed, ref, onMounted, onBeforeUnmount, watch, nextTick} from 'vue'
-import {useRouter} from 'vue-router'
 import {useSongsStore} from '@/stores/songs'
+import {useMusicPreferencesStore} from '@/stores/preferences'
 import {useFormatTime} from '@/composables/useFormatTime'
 import {usePlayModeIcon} from '@/composables/usePlayModeIcon'
 import {useVolumeControl} from '@/composables/useVolumeControl'
@@ -354,7 +400,7 @@ import {useVirtualList} from '@/composables/useVirtualList'
 import type {Song} from '@/types'
 
 const songsStore = useSongsStore()
-const router = useRouter()
+const preferencesStore = useMusicPreferencesStore()
 
 // ========== 本地状态 ==========
 const audioElement = ref<HTMLAudioElement | null>(null)
@@ -362,6 +408,7 @@ const showVolume = ref(false)
 const isSeeking = ref(false)
 const showPlaylist = ref(false)
 const showMobilePlaylist = ref(false)
+const defaultCover = '/favicon.ico'
 
 // Playlist refs
 const playlistContainer = ref<HTMLDivElement | null>(null)
@@ -381,9 +428,9 @@ const currentPlaylist = computed(() => songsStore.currentPlaylist)
 const isPlaying = computed(() => songsStore.isPlaying)
 
 // ========== 派生状态 ==========
-const showLyricPage = computed(() => router.currentRoute.value.path === '/lyric')
 const playlistSongs = computed(() => currentPlaylist.value?.items || [])
 const playPauseIcon = computed(() => (isPlaying.value ? 'i-lucide-pause' : 'i-lucide-play'))
+const isCurrentSongLiked = computed(() => preferencesStore.isSongLiked(currentSong.value))
 
 // ========== 虚拟滚动 ==========
 // 桌面版虚拟列表 - 每项高度约 48px (32px + padding + gap)
@@ -513,13 +560,21 @@ function togglePlay() {
   songsStore.togglePlay()
 }
 
+function toggleCurrentLike() {
+  preferencesStore.toggleLikedSong(currentSong.value)
+}
+
+function dislikeCurrentSong() {
+  if (!currentSong.value) return
+  songsStore.dislikeSong(currentSong.value)
+}
+
 function showLyrics() {
-  if (showLyricPage.value) {
-    router.push('/')
-  } else {
-    songsStore.showCurrentLyrics()
-    router.push('/lyric')
+  if (songsStore.lyricsPanelOpen) {
+    songsStore.closeLyricsPanel()
+    return
   }
+  void songsStore.openLyricsPanel('vinyl')
 }
 
 // ========== 播放列表相关函数 ==========

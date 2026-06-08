@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Album, Artist, Song, SongSearchFilters } from '@/types'
+import { useMusicPreferencesStore } from './preferences'
 
 /**
  * 数据获取 Store
  */
 export const useDataStore = defineStore('data', () => {
+  const preferencesStore = useMusicPreferencesStore()
   const songs = ref<Song[]>([])
   const artists = ref<Artist[]>([])
   const albums = ref<Album[]>([])
@@ -51,15 +53,96 @@ export const useDataStore = defineStore('data', () => {
         offset
       }
       Object.keys(params).forEach(k => {
-        if (params[k] === undefined || params[k] === null || params[k] === '') delete params[k]
+        if (params[k] === undefined || params[k] === null || params[k] === '') {
+          delete params[k]
+        }
       })
       const res = await $fetch('/api/songs', { params })
-      result = res as Song[]
+      result = preferencesStore.filterVisibleSongs(res as Song[], filters)
     } catch (e) {
       result = []
       console.error('Failed to fetch songs:', e)
     }
     return result
+  }
+
+  async function recommendations(profileId?: string, limit: number = 50) {
+    try {
+      const res = await $fetch<Song[]>('/api/music/recommendations', {
+        params: {
+          profile_id: profileId,
+          limit,
+          include_assets: true
+        }
+      })
+      return preferencesStore.filterVisibleSongs(res)
+    } catch (e) {
+      console.error('Failed to fetch recommendations:', e)
+      return searchSongs('', true, undefined, undefined, limit, undefined, { includeAssets: true })
+    }
+  }
+
+  async function similar(songId: number, limit: number = 24) {
+    try {
+      const res = await $fetch<Song[]>(`/api/music/similar/${songId}`, {
+        params: {
+          limit,
+          include_assets: true
+        }
+      })
+      return preferencesStore.filterVisibleSongs(res)
+    } catch (e) {
+      console.error('Failed to fetch similar songs:', e)
+      return searchSongs('', true, undefined, undefined, limit, undefined, { includeAssets: true })
+    }
+  }
+
+  async function chart(chart: string, limit: number = 50) {
+    try {
+      const res = await $fetch<{ songs: Song[] }>('/api/music/charts', {
+        params: {
+          chart,
+          limit,
+          include_assets: true
+        }
+      })
+      return preferencesStore.filterVisibleSongs(res.songs || [])
+    } catch (e) {
+      console.error('Failed to fetch chart:', e)
+      return searchSongs('', chart === 'hot', undefined, undefined, limit, undefined, { includeAssets: true })
+    }
+  }
+
+  async function channels() {
+    try {
+      return await $fetch('/api/music/channels')
+    } catch (e) {
+      console.error('Failed to fetch channels:', e)
+      return {
+        kind: 'fallback',
+        radios: [],
+        scenes: [],
+        podcasts: [],
+        mv: [],
+        albums: []
+      }
+    }
+  }
+
+  async function recordEvent(song: Song | null | undefined, eventType: string, profileId?: string) {
+    if (!song?.id) return
+    try {
+      await $fetch('/api/music/events', {
+        method: 'POST',
+        body: {
+          song_id: song.id,
+          event_type: eventType,
+          profile_id: profileId
+        }
+      })
+    } catch (e) {
+      console.warn('Failed to record song event:', e)
+    }
   }
 
   /**
@@ -126,10 +209,14 @@ export const useDataStore = defineStore('data', () => {
   async function fetchHomeData(filters: SongSearchFilters = {}) {
     homeLoading.value = true
     try {
+      const listFilters: SongSearchFilters = {
+        ...filters,
+        includeAssets: filters.includeAssets ?? true
+      }
       const [songsResult, artistsResult, albumsResult] = await Promise.all([
-        searchSongs('', true, undefined, undefined, 50, undefined, filters),
-        searchArtists('', true),
-        searchAlbums('', true)
+        searchSongs('', true, undefined, undefined, 50, undefined, listFilters),
+        searchArtists('', true, 20),
+        searchAlbums('', true, 20)
       ])
       songs.value = songsResult
       artists.value = artistsResult
@@ -243,6 +330,11 @@ export const useDataStore = defineStore('data', () => {
     albumsLoading,
     albumsHasMore,
     searchSongs,
+    recommendations,
+    similar,
+    chart,
+    channels,
+    recordEvent,
     searchAlbums,
     searchArtists,
     fetchHomeData,

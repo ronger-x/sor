@@ -46,7 +46,7 @@
         >
           <div class="flex flex-col items-center text-center">
             <NuxtImg
-              :src="artist.cover || '/default-avatar.png'"
+              :src="artist.cover || defaultAvatar"
               :alt="artist.artist"
               width="150"
               height="150"
@@ -54,7 +54,7 @@
               class="w-full aspect-square object-cover rounded-full mb-3"
             />
             <div class="font-bold text-sm line-clamp-2 w-full">{{ artist.artist }}</div>
-            <div class="text-xs text-gray-500 mt-1">{{ artist.count || 0 }} 首歌曲</div>
+            <div class="text-xs text-gray-500 mt-1">{{ Number(artist.count || 0) }} 首歌曲</div>
           </div>
         </UCard>
       </div>
@@ -93,6 +93,7 @@ const searchQuery = ref('')
 const artists = computed(() => songsStore.allArtists)
 const loading = computed(() => songsStore.artistsLoading)
 const hasMore = computed(() => songsStore.artistsHasMore)
+const defaultAvatar = '/favicon.ico'
 
 /**
  * 加载歌手列表
@@ -132,7 +133,7 @@ async function handleArtistClick(artist: Artist) {
     false,
     undefined,
     artist.artist,
-    artist.count || 50
+    Number(artist.count || 50)
   )
   if (songs.length > 0) {
     songsStore.setPlaylist(`artist-${artist.artist}`, artist.artist, songs)

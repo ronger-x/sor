@@ -4,7 +4,7 @@
 
     <template #content>
       <div class="space-y-3 p-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <UInput
             v-model="filterArtist"
             size="sm"
@@ -32,16 +32,19 @@
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <UCheckbox v-model="lightMode" label="轻量加载" />
+          <div class="flex items-center gap-2">
+            <USwitch v-model="fastListMode" size="sm" />
+            <span class="text-xs text-muted">快速列表模式</span>
+          </div>
           <UButton
-            v-if="hasFilters"
-            icon="i-lucide-x"
+            v-if="hasFilters || fastListMode"
+            icon="i-lucide-rotate-ccw"
             size="xs"
             variant="ghost"
             color="neutral"
             @click="clearFilters"
           >
-            清空筛选
+            重置
           </UButton>
         </div>
 
@@ -49,7 +52,7 @@
           v-model:search-term="searchTerm"
           :groups="songGroups"
           :loading="searchLoading"
-          placeholder="搜索歌曲名或歌手..."
+          placeholder="搜索歌曲名、歌手或专辑..."
           class="h-96"
           @update:model-value="handleSongSelect"
         >
@@ -67,6 +70,26 @@
               <UIcon name="i-lucide-music" class="size-5 text-dimmed" />
             </div>
           </template>
+          <template #item-trailing="{ item }">
+            <div class="flex items-center gap-1">
+              <UButton
+                :icon="isSongLiked(item.song) ? 'i-lucide-heart-off' : 'i-lucide-heart'"
+                size="xs"
+                variant="ghost"
+                :color="isSongLiked(item.song) ? 'error' : 'neutral'"
+                :aria-label="isSongLiked(item.song) ? '取消喜欢' : '喜欢歌曲'"
+                @click.stop="toggleLikedSong(item.song)"
+              />
+              <UButton
+                icon="i-lucide-ban"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                aria-label="不想听这首"
+                @click.stop="blockSong(item.song)"
+              />
+            </div>
+          </template>
 
           <template #empty="{ searchTerm }">
             <div class="flex flex-col items-center justify-center gap-3 py-8">
@@ -76,7 +99,7 @@
                   {{ searchTerm ? '没有找到歌曲' : '开始搜索歌曲' }}
                 </p>
                 <p class="text-sm text-muted mt-1">
-                  {{ searchTerm ? '尝试输入其他关键词或放宽筛选' : '输入歌曲名或歌手名称' }}
+                  {{ searchTerm ? '尝试输入其他关键词或放宽筛选' : '输入歌曲名、歌手或专辑名称' }}
                 </p>
               </div>
             </div>
@@ -90,11 +113,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useSongsStore } from '@/stores/songs'
-import { useRouter } from 'vue-router'
+import { useMusicPreferencesStore } from '@/stores/preferences'
 import type { Song, SongSearchFilters } from '@/types'
 
 const songsStore = useSongsStore()
-const router = useRouter()
+const preferencesStore = useMusicPreferencesStore()
 
 // 组件状态
 const isOpen = ref(false)
@@ -105,7 +128,7 @@ const filterArtist = ref('')
 const filterAlbum = ref('')
 const excludeArtist = ref('')
 const excludeAlbum = ref('')
-const lightMode = ref(true)
+const fastListMode = ref(false)
 
 // Store 状态
 const currentPlaylistId = computed(() => songsStore.currentPlaylistId)
@@ -115,16 +138,15 @@ const activeFilters = computed<SongSearchFilters>(() => ({
   album: filterAlbum.value.trim() || undefined,
   excludeArtist: excludeArtist.value.trim() || undefined,
   excludeAlbum: excludeAlbum.value.trim() || undefined,
-  includeAssets: !lightMode.value
+  includeAssets: !fastListMode.value
 }))
-const hasFilters = computed(
-  () =>
-    Boolean(
-      activeFilters.value.artist ||
-        activeFilters.value.album ||
-        activeFilters.value.excludeArtist ||
-        activeFilters.value.excludeAlbum
-    ) || !lightMode.value
+const hasFilters = computed(() =>
+  Boolean(
+    activeFilters.value.artist ||
+      activeFilters.value.album ||
+      activeFilters.value.excludeArtist ||
+      activeFilters.value.excludeAlbum
+  )
 )
 
 // 将歌曲转换为 CommandPalette 所需的格式
@@ -136,13 +158,14 @@ const songGroups = computed(() => {
   const items = searchSongs.value.map((song: Song) => ({
     id: song.url,
     label: song.name,
-    suffix: song.artist,
+    suffix: [song.artist, song.album].filter(Boolean).join(' · '),
     icon: 'i-lucide-music',
     cover: song.cover,
     name: song.name,
     artist: song.artist,
     url: song.url,
     lrc: song.lrc,
+    song,
     onSelect: () => handleSongSelect(song)
   }))
 
@@ -156,6 +179,9 @@ const songGroups = computed(() => {
   ]
 })
 
+/**
+ * 监听搜索词变化，自动触发搜索
+ */
 const runSearch = async () => {
   if (!searchTerm.value) {
     searchSongs.value = []
@@ -178,18 +204,26 @@ const runSearch = async () => {
   }
 }
 
-/**
- * 监听搜索词变化，自动触发搜索
- */
 watch(searchTerm, runSearch)
-watch([filterArtist, filterAlbum, excludeArtist, excludeAlbum, lightMode], runSearch)
+watch([filterArtist, filterAlbum, excludeArtist, excludeAlbum, fastListMode], runSearch)
 
 const clearFilters = () => {
   filterArtist.value = ''
   filterAlbum.value = ''
   excludeArtist.value = ''
   excludeAlbum.value = ''
-  lightMode.value = true
+  fastListMode.value = false
+}
+
+const isSongLiked = (song: Song) => preferencesStore.isSongLiked(song)
+
+const toggleLikedSong = (song: Song) => {
+  preferencesStore.toggleLikedSong(song)
+}
+
+const blockSong = async (song: Song) => {
+  preferencesStore.blockSong(song)
+  await runSearch()
 }
 
 /**
@@ -201,8 +235,7 @@ const handleSongSelect = async (song: any) => {
 
   // 如果在歌词页面，返回首页
   if (lyricsModal.value) {
-    songsStore.closeLyricsModal()
-    await router.push('/')
+    songsStore.closeLyricsPanel()
   }
 
   // 播放选中的歌曲

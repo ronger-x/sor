@@ -1,0 +1,9 @@
+.git
+.nuxt
+.output
+node_modules
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

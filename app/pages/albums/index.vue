@@ -46,7 +46,7 @@
         >
           <div class="flex flex-col items-center text-center">
             <NuxtImg
-              :src="album.cover || '/default-album.png'"
+              :src="album.cover || defaultAlbum"
               :alt="album.album"
               width="150"
               height="150"
@@ -54,7 +54,7 @@
               class="w-full aspect-square object-cover rounded mb-3"
             />
             <div class="font-bold text-sm line-clamp-2 w-full">{{ album.album }}</div>
-            <div class="text-xs text-gray-500 mt-1">{{ album.count || 0 }} 首歌曲</div>
+            <div class="text-xs text-gray-500 mt-1">{{ Number(album.count || 0) }} 首歌曲</div>
           </div>
         </UCard>
       </div>
@@ -93,6 +93,7 @@ const searchQuery = ref('')
 const albums = computed(() => songsStore.allAlbums)
 const loading = computed(() => songsStore.albumsLoading)
 const hasMore = computed(() => songsStore.albumsHasMore)
+const defaultAlbum = '/favicon.ico'
 
 /**
  * 加载专辑列表
@@ -127,7 +128,13 @@ async function clearSearch() {
  * 点击专辑，使用专辑名称和count作为查询参数
  */
 async function handleAlbumClick(album: Album) {
-  const songs = await songsStore.searchSongs('', false, album.album, undefined, album.count || 50)
+  const songs = await songsStore.searchSongs(
+    '',
+    false,
+    album.album,
+    undefined,
+    Number(album.count || 50)
+  )
   if (songs.length > 0) {
     songsStore.setPlaylist(`album-${album.album}`, album.album, songs)
     // 播放第一首

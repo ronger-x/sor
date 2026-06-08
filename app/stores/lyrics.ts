@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useLyricSync } from '@/composables/useLyricSync'
+import type { LyricViewMode } from '@/types'
 
 /**
  * 歌词管理 Store
@@ -9,6 +10,8 @@ export const useLyricsStore = defineStore('lyrics', () => {
   const lyrics = ref('')
   const lyricsLoading = ref(false)
   const lyricsModal = ref(false)
+  const lyricsPanelOpen = ref(false)
+  const lyricViewMode = ref<LyricViewMode>('vinyl')
 
   // LRC 缓存 (key = lrc url)
   const lrcCache = new Map<string, { raw: string; parsed: { time: number; text: string }[] }>()
@@ -19,9 +22,12 @@ export const useLyricsStore = defineStore('lyrics', () => {
   /**
    * 显示当前歌曲的歌词
    */
-  async function showLyrics(lrcUrl?: string) {
+  async function showLyrics(lrcUrl?: string | null) {
     if (!lrcUrl) {
       lyrics.value = '暂无歌词'
+      lyricsLoading.value = false
+      lyricSync.parsedLyrics.value = []
+      lyricSync.currentLyricLine.value = 0
       return
     }
 
@@ -57,7 +63,7 @@ export const useLyricsStore = defineStore('lyrics', () => {
   /**
    * 预加载歌词
    */
-  async function preloadLyrics(lrcUrl?: string) {
+  async function preloadLyrics(lrcUrl?: string | null) {
     if (!lrcUrl || lrcCache.has(lrcUrl)) return
 
     try {
@@ -75,18 +81,39 @@ export const useLyricsStore = defineStore('lyrics', () => {
    */
   function closeLyricsModal() {
     lyricsModal.value = false
+    lyricsPanelOpen.value = false
+  }
+
+  function openLyricsPanel(mode?: LyricViewMode) {
+    if (mode) lyricViewMode.value = mode
+    lyricsPanelOpen.value = true
+    lyricsModal.value = true
+  }
+
+  function closeLyricsPanel() {
+    lyricsPanelOpen.value = false
+    lyricsModal.value = false
+  }
+
+  function setLyricViewMode(mode: LyricViewMode) {
+    lyricViewMode.value = mode
   }
 
   return {
     lyrics,
     lyricsLoading,
     lyricsModal,
+    lyricsPanelOpen,
+    lyricViewMode,
     parsedLyrics: lyricSync.parsedLyrics,
     currentLyricLine: lyricSync.currentLyricLine,
     isUserSeeking: lyricSync.isUserSeeking,
     showLyrics,
     preloadLyrics,
     closeLyricsModal,
+    openLyricsPanel,
+    closeLyricsPanel,
+    setLyricViewMode,
     startLyricSync: lyricSync.startLyricSync,
     stopLyricSync: lyricSync.stopLyricSync,
     beginSeek: lyricSync.beginSeek,
