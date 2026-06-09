@@ -29,7 +29,7 @@ function inferSharePath(event: H3Event, token: string, configuredBaseURL?: strin
   const requestPrefix = apiIndex >= 0 ? requestPath.slice(0, apiIndex) : ''
   const configuredPrefix = configuredBaseURL && configuredBaseURL !== '/' ? configuredBaseURL : ''
   const prefix = (requestPrefix || configuredPrefix).replace(/\/+$/, '')
-  return `${prefix}/share/${encodeURIComponent(token)}` || `/share/${encodeURIComponent(token)}`
+  return `${prefix}/share/${encodeURIComponent(token)}`
 }
 
 function rewriteShareUrl(event: H3Event, token: string, configuredBaseURL?: string) {
@@ -51,7 +51,7 @@ export default eventHandler(async (event: H3Event) => {
       statusMessage: 'Music API URL not configured',
       data: {
         error: 'missing_server_api_url',
-        message: 'Server is missing MUSIC_API_URL. Set MUSIC_API_URL in your environment.'
+        message: 'Server is missing the music API URL. Set NUXT_MUSIC_API_URL in your environment.'
       }
     })
   }
@@ -62,7 +62,7 @@ export default eventHandler(async (event: H3Event) => {
       statusMessage: 'Music API Key not configured',
       data: {
         error: 'missing_server_api_key',
-        message: 'Server is missing MUSIC_API_KEY. Set MUSIC_API_KEY in your environment.'
+        message: 'Server is missing the music API key. Set NUXT_MUSIC_API_KEY in your environment.'
       }
     })
   }

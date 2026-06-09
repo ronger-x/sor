@@ -45,7 +45,7 @@
             <p>{{ shareSubtitle }}</p>
             <div class="share-card__source">
               <span class="share-card__source-icon">S</span>
-              <span>来自某科学的人的音乐库</span>
+              <span>来自 S.O.R 音乐库</span>
             </div>
           </div>
 

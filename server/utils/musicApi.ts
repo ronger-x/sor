@@ -11,7 +11,7 @@ export function getMusicApiConfig(event: H3Event) {
       statusMessage: 'Music API URL not configured',
       data: {
         error: 'missing_server_api_url',
-        message: 'Server is missing MUSIC_API_URL. Set MUSIC_API_URL in your environment.'
+        message: 'Server is missing the music API URL. Set NUXT_MUSIC_API_URL in your environment.'
       }
     })
   }
@@ -22,7 +22,7 @@ export function getMusicApiConfig(event: H3Event) {
       statusMessage: 'Music API Key not configured',
       data: {
         error: 'missing_server_api_key',
-        message: 'Server is missing MUSIC_API_KEY. Set MUSIC_API_KEY in your environment.'
+        message: 'Server is missing the music API key. Set NUXT_MUSIC_API_KEY in your environment.'
       }
     })
   }

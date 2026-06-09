@@ -14,7 +14,7 @@ export default eventHandler(async (event: H3Event) => {
       statusMessage: 'Music API URL not configured',
       data: {
         error: 'missing_server_api_url',
-        message: 'Server is missing MUSIC_API_URL. Set MUSIC_API_URL in your environment.'
+        message: 'Server is missing the music API URL. Set NUXT_MUSIC_API_URL in your environment.'
       }
     })
   }

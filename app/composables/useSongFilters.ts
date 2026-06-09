@@ -2,13 +2,14 @@ import { computed, ref } from 'vue'
 import type { SongSearchFilters } from '@/types'
 
 /**
- * Shared song-discovery filter state.
+ * Song-discovery filter state factory.
  *
- * The home page and the search palette both expose the same four filter inputs
+ * The home page and the search palette each expose the same four filter inputs
  * (include/exclude artist & album) plus a "fast list" toggle that controls
- * whether heavy assets are fetched. Centralising the refs + derived
- * `activeFilters`/`hasFilters` here keeps the two call sites in sync and avoids
- * duplicating the trim/normalise rules.
+ * whether heavy assets are fetched. Each call site gets its own independent set
+ * of refs on purpose — filtering the home recommendations must NOT bleed into
+ * the search palette and vice versa. This factory only centralises the shared
+ * shape and the trim/normalise rules so they aren't duplicated.
  */
 export function useSongFilters() {
   const filterArtist = ref('')

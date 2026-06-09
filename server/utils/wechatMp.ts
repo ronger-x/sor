@@ -34,7 +34,7 @@ export function assertWechatSignature(event: H3Event) {
       statusMessage: 'Wechat token is not configured',
       data: {
         error: 'wechat_token_not_configured',
-        message: 'WECHAT_MP_TOKEN is required.'
+        message: 'WeChat token is required. Set NUXT_WECHAT_MP_TOKEN in your environment.'
       }
     })
   }

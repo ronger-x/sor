@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
-import { createError, deleteCookie, getCookie, H3Event, setCookie } from 'h3'
+import { createError, deleteCookie, getCookie, getRequestProtocol, H3Event, setCookie } from 'h3'
 
 const COOKIE_NAME = 'sor_upload_session'
 const CARD_PREFIX = 'SOR'
@@ -34,6 +34,12 @@ function signUploadSession(secret: string, expires: number) {
 
 function signUploadCard(secret: string, expires: number, nonce: string) {
   return createHmac('sha256', secret).update(`card:${expires}:${nonce}`).digest('base64url').slice(0, 24)
+}
+
+// Only mark the session cookie `secure` over HTTPS. Hardcoding `secure: true`
+// breaks local HTTP dev because the browser silently drops the cookie.
+function isSecureRequest(event: H3Event) {
+  return getRequestProtocol(event, { xForwardedProto: true }) === 'https'
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -78,7 +84,7 @@ export function createUploadCard(event: H3Event) {
       statusMessage: 'Upload auth is not configured',
       data: {
         error: 'upload_auth_not_configured',
-        message: 'Upload access is disabled until SOR_UPLOAD_PASSWORD is configured.'
+        message: 'Upload access is disabled until NUXT_UPLOAD_PASSWORD is configured.'
       }
     })
   }
@@ -115,7 +121,7 @@ export function assertUploadSession(event: H3Event) {
       statusMessage: 'Upload auth is not configured',
       data: {
         error: 'upload_auth_not_configured',
-        message: 'Upload access is disabled until SOR_UPLOAD_PASSWORD is configured.'
+        message: 'Upload access is disabled until NUXT_UPLOAD_PASSWORD is configured.'
       }
     })
   }
@@ -140,7 +146,7 @@ export function createUploadSession(event: H3Event, password: string) {
       statusMessage: 'Upload auth is not configured',
       data: {
         error: 'upload_auth_not_configured',
-        message: 'Upload access is disabled until SOR_UPLOAD_PASSWORD is configured.'
+        message: 'Upload access is disabled until NUXT_UPLOAD_PASSWORD is configured.'
       }
     })
   }
@@ -160,7 +166,7 @@ export function createUploadSession(event: H3Event, password: string) {
   const value = `${expires}.${signUploadSession(secret, expires)}`
   setCookie(event, COOKIE_NAME, value, {
     httpOnly: true,
-    secure: true,
+    secure: isSecureRequest(event),
     sameSite: 'lax',
     path: '/',
     maxAge: ttlSeconds
@@ -171,7 +177,7 @@ export function createUploadSession(event: H3Event, password: string) {
 export function clearUploadSession(event: H3Event) {
   deleteCookie(event, COOKIE_NAME, {
     httpOnly: true,
-    secure: true,
+    secure: isSecureRequest(event),
     sameSite: 'lax',
     path: '/'
   })
