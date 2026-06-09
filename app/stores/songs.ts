@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, nextTick, watch } from 'vue'
-import type { Song } from '@/types'
+import type { Song, SongSearchFilters } from '@/types'
 import { useAudioPlayer } from '@/composables/useAudioPlayer'
 import { usePlaylistManagement } from '@/composables/usePlaylistManagement'
 import { useMediaSessionAPI } from '@/composables/useMediaSessionAPI'
@@ -8,12 +8,15 @@ import { useBufferManagement } from '@/composables/useBufferManagement'
 import { useVolumeStore } from './volume'
 import { useLyricsStore } from './lyrics'
 import { useDataStore } from './data'
+import { useMusicPreferencesStore } from './preferences'
+import type { LyricViewMode } from '@/types'
 
 export const useSongsStore = defineStore('songs', () => {
   // ========== 引入子模块 ==========
   const volumeStore = useVolumeStore()
   const lyricsStore = useLyricsStore()
   const dataStore = useDataStore()
+  const preferencesStore = useMusicPreferencesStore()
 
   // ========== 音频播放器 ==========
   const { audioRef, initAudio: baseInitAudio, getAudio } = useAudioPlayer()
@@ -107,6 +110,8 @@ export const useSongsStore = defineStore('songs', () => {
       const playResult = audio.play()
       isPlaying.value = true
       await playResult
+      preferencesStore.addRecentSong(currentSong.value)
+      void dataStore.recordEvent(currentSong.value, 'play', preferencesStore.profileId)
       duration.value = isFinite(audio.duration) ? audio.duration : 0
       lyricsStore.startLyricSync(getAudio)
       mediaSession.updateMediaSession(currentSong.value)
@@ -281,6 +286,19 @@ export const useSongsStore = defineStore('songs', () => {
     }
   }
 
+  function dislikeSong(song: Song | null = currentSong.value) {
+    if (!song) return
+    preferencesStore.blockSong(song)
+    void dataStore.recordEvent(song, 'dislike', preferencesStore.profileId)
+    const currentIdx = playlistManagement.currentSongIndex.value
+    if (song.url === currentSong.value?.url && currentIdx >= 0) {
+      removeSong(currentIdx)
+      return
+    }
+    const idx = playlistManagement.playlistItems.value.findIndex(item => item.url === song.url)
+    if (idx >= 0) removeSong(idx)
+  }
+
   /**
    * 清空歌曲列表
    */
@@ -315,8 +333,8 @@ export const useSongsStore = defineStore('songs', () => {
   /**
    * 获取首页数据并初始化
    */
-  async function fetchHomeData() {
-    const { songs } = await dataStore.fetchHomeData()
+  async function fetchHomeData(filters: SongSearchFilters = {}) {
+    const { songs } = await dataStore.fetchHomeData(filters)
     if (songs.length > 0 && !playlistManagement.currentPlaylistId.value) {
       playlistManagement.setPlaylist('default', '默认播放列表', songs)
     }
@@ -393,6 +411,8 @@ export const useSongsStore = defineStore('songs', () => {
     lyricsLoading: computed(() => lyricsStore.lyricsLoading),
     parsedLyrics: computed(() => lyricsStore.parsedLyrics),
     lyricsModal: computed(() => lyricsStore.lyricsModal),
+    lyricsPanelOpen: computed(() => lyricsStore.lyricsPanelOpen),
+    lyricViewMode: computed(() => lyricsStore.lyricViewMode),
     currentLyricLine: computed(() => lyricsStore.currentLyricLine),
 
     // ========== 播放模式和列表 ==========
@@ -424,10 +444,16 @@ export const useSongsStore = defineStore('songs', () => {
     reset,
     dispose,
     removeSong,
+    dislikeSong,
     clearSongs,
 
     // ========== 数据获取 ==========
     searchSongs: dataStore.searchSongs,
+    recommendations: dataStore.recommendations,
+    similar: dataStore.similar,
+    chart: dataStore.chart,
+    channels: dataStore.channels,
+    recordEvent: dataStore.recordEvent,
     searchAlbums: dataStore.searchAlbums,
     searchArtists: dataStore.searchArtists,
     loadAllArtists: dataStore.loadAllArtists,
@@ -435,6 +461,13 @@ export const useSongsStore = defineStore('songs', () => {
 
     // ========== 歌词 ==========
     showCurrentLyrics: () => lyricsStore.showLyrics(currentSong.value?.lrc),
+    closeLyricsModal: lyricsStore.closeLyricsModal,
+    openLyricsPanel: async (mode?: LyricViewMode) => {
+      lyricsStore.openLyricsPanel(mode)
+      await lyricsStore.showLyrics(currentSong.value?.lrc)
+    },
+    closeLyricsPanel: lyricsStore.closeLyricsPanel,
+    setLyricViewMode: lyricsStore.setLyricViewMode,
     seekTo: (timeMs: number) => {
       lyricsStore.seekTo(timeMs, getAudio)
       isPlaying.value = true

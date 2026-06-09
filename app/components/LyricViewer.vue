@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full flex">
+  <div :class="viewerClasses" :style="viewerStyle">
     <!-- 左侧黑胶唱片区域 - 占据50%宽度 -->
     <div class="vinyl-section flex items-center justify-center">
       <div class="vinyl-wrapper">
@@ -15,18 +15,11 @@
             <!-- 封面图片 -->
             <div class="vinyl-cover">
               <NuxtImg
-                v-if="currentSong?.cover"
-                :src="currentSong.cover"
-                :alt="currentSong.name"
+                :src="currentSong?.cover || defaultCover"
+                :alt="currentSong?.name || '当前歌曲'"
                 class="w-full h-full object-cover rounded-full"
                 loading="eager"
               />
-              <div
-                v-else
-                class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center"
-              >
-                <UIcon name="i-lucide-music" class="text-6xl text-white opacity-50" />
-              </div>
             </div>
 
             <!-- 黑胶唱片纹理 -->
@@ -57,12 +50,12 @@
 
       <!-- 无歌词状态 -->
       <div
-        v-else-if="!lyrics || lyrics.length === 0"
+        v-else-if="!currentSong || !lyrics || lyrics.length === 0"
         class="flex items-center justify-center h-full"
       >
         <div class="text-center text-gray-500">
           <UIcon name="i-lucide-music" class="text-4xl mb-2" />
-          <p>暂无歌词</p>
+          <p>{{ currentSong ? '暂无歌词' : '还没有播放歌曲' }}</p>
         </div>
       </div>
 
@@ -80,24 +73,23 @@
         <template v-for="(line, i) in lyrics" :key="i">
           <div
             v-if="line.text"
-            :ref="el => setLineRef(i, el)"
+            :ref="setLineRefFor(i)"
             :class="[
               'lyric-line py-2 transition-all duration-300 cursor-pointer',
               {
-                'text-primary lyric-active': i === currentLine,
+                'lyric-active': i === currentLine,
                 'opacity-50': i !== currentLine
               }
             ]"
             @click="onLineClick(line)"
+            @keydown.enter.prevent="onLineClick(line)"
+            @keydown.space.prevent="onLineClick(line)"
             role="button"
             tabindex="0"
           >
             {{ line.text || '' }}
           </div>
         </template>
-
-        <!-- 底部留白，确保最后一句歌词可以滚动到中间 -->
-        <div class="h-[50vh]"></div>
       </div>
     </div>
   </div>
@@ -105,11 +97,25 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 import { useRouter } from 'vue-router'
+import type { LyricViewMode } from '@/types'
 
 const songsStore = useSongsStore()
 const router = useRouter()
+const props = withDefaults(
+  defineProps<{
+    mode?: LyricViewMode
+    embedded?: boolean
+    redirectOnEmpty?: boolean
+  }>(),
+  {
+    mode: 'vinyl',
+    embedded: false,
+    redirectOnEmpty: true
+  }
+)
 
 // ========== Store 状态（使用 computed 确保响应式） ==========
 const lyrics = computed(() => songsStore.parsedLyrics)
@@ -117,6 +123,27 @@ const currentLine = computed(() => songsStore.currentLyricLine)
 const lyricsLoading = computed(() => songsStore.lyricsLoading)
 const currentSong = computed(() => songsStore.currentSong)
 const isPlaying = computed(() => songsStore.isPlaying)
+const defaultCover = '/favicon.ico'
+const coverImage = computed(() => currentSong.value?.cover || defaultCover)
+const viewerClasses = computed(() => [
+  'lyric-viewer',
+  'w-full',
+  'h-full',
+  'min-h-0',
+  'flex',
+  `lyric-viewer--${props.mode}`,
+  {
+    'lyric-viewer--embedded': props.embedded,
+    'lyric-viewer--standalone': !props.embedded
+  }
+])
+const coverPalette = ref(createFallbackPalette('S.O.R Music'))
+const viewerStyle = computed<Record<string, string>>(() => ({
+  '--lyric-cover-image': `url(${JSON.stringify(coverImage.value)})`,
+  '--lyric-bg-rgb': coverPalette.value.background.join(' '),
+  '--lyric-accent-rgb': coverPalette.value.accent.join(' '),
+  '--lyric-foreground-rgb': coverPalette.value.foreground.join(' ')
+}))
 
 // ========== 组件状态 ==========
 const hideScrollbar = ref(true)
@@ -128,16 +155,36 @@ const isScrolling = ref(false)
 
 let scrollTimeout: number | null = null
 let scrollHandler: (() => void) | null = null
+let paletteToken = 0
+
+interface CoverPalette {
+  background: [number, number, number]
+  accent: [number, number, number]
+  foreground: [number, number, number]
+}
 
 /**
  * 设置歌词行的 ref
  */
-function setLineRef(index: number, el: any) {
-  if (el) {
-    lineRefs.value.set(index, el as HTMLElement)
+type TemplateRefValue = Element | ComponentPublicInstance | null
+
+function asHTMLElement(el: TemplateRefValue): HTMLElement | null {
+  if (el instanceof HTMLElement) return el
+  const maybeElement = el && '$el' in el ? el.$el : null
+  return maybeElement instanceof HTMLElement ? maybeElement : null
+}
+
+function setLineRef(index: number, el: TemplateRefValue) {
+  const element = asHTMLElement(el)
+  if (element) {
+    lineRefs.value.set(index, element)
   } else {
     lineRefs.value.delete(index)
   }
+}
+
+function setLineRefFor(index: number) {
+  return (el: TemplateRefValue) => setLineRef(index, el)
 }
 
 /**
@@ -158,7 +205,20 @@ async function scrollToLine(idx: number) {
   if (!el) return
 
   if (centerOnActive.value) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const containerRect = container.value.getBoundingClientRect()
+    const lineRect = el.getBoundingClientRect()
+    const targetTop =
+      container.value.scrollTop +
+      lineRect.top -
+      containerRect.top -
+      container.value.clientHeight / 2 +
+      lineRect.height / 2
+    const maxTop = Math.max(0, container.value.scrollHeight - container.value.clientHeight)
+
+    container.value.scrollTo({
+      top: Math.min(Math.max(targetTop, 0), maxTop),
+      behavior: 'smooth'
+    })
   } else {
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
@@ -193,6 +253,16 @@ watch(
   { immediate: false }
 )
 
+watch(
+  () => lyrics.value.length,
+  length => {
+    if (length > 0 && currentLine.value >= 0) {
+      void scrollToLine(currentLine.value)
+    }
+  },
+  { flush: 'post' }
+)
+
 /**
  * 监听歌曲变化，重新加载歌词
  */
@@ -215,14 +285,24 @@ watch(
   { immediate: true }
 )
 
+watch(
+  [coverImage, () => currentSong.value?.name, () => currentSong.value?.artist],
+  ([src, name, artist]) => {
+    void updateCoverPalette(src, [name, artist].filter(Boolean).join('-') || src)
+  },
+  { immediate: true }
+)
+
 /**
  * 组件挂载
  */
 onMounted(async () => {
   // 确保有当前歌曲
   if (!currentSong.value) {
-    console.warn('No current song, redirecting to home')
-    goHome()
+    if (props.redirectOnEmpty) {
+      console.warn('No current song, redirecting to home')
+      goHome()
+    }
     return
   }
 
@@ -230,6 +310,7 @@ onMounted(async () => {
   if (lyrics.value.length === 0) {
     await songsStore.showCurrentLyrics()
   }
+  await scrollToLine(currentLine.value)
 
   // 添加滚动监听
   if (container.value) {
@@ -269,14 +350,215 @@ function onLineClick(line: { time: number; text: string }) {
 
   // 使用 store 的 seekTo 方法（会自动开始播放）
   songsStore.seekTo(line.time)
+  void scrollToLine(currentLine.value)
+}
+
+async function updateCoverPalette(src: string, seed: string) {
+  const token = ++paletteToken
+  coverPalette.value = createFallbackPalette(seed)
+
+  if (!import.meta.client || !src) return
+
+  try {
+    const img = await loadPaletteImage(src)
+    const palette = sampleImagePalette(img)
+    if (token === paletteToken) {
+      coverPalette.value = palette
+    }
+  } catch {
+    if (token === paletteToken) {
+      coverPalette.value = createFallbackPalette(seed)
+    }
+  }
+}
+
+function loadPaletteImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    img.referrerPolicy = 'no-referrer'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function sampleImagePalette(img: HTMLImageElement): CoverPalette {
+  const canvas = document.createElement('canvas')
+  const size = 36
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) throw new Error('Canvas is not available')
+
+  ctx.drawImage(img, 0, 0, size, size)
+  const pixels = ctx.getImageData(0, 0, size, size).data
+  let r = 0
+  let g = 0
+  let b = 0
+  let weightTotal = 0
+  let accentScore = -1
+  let accent: [number, number, number] = [96, 165, 250]
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const alpha = pixels[i + 3] / 255
+    if (alpha < 0.35) continue
+
+    const pr = pixels[i]
+    const pg = pixels[i + 1]
+    const pb = pixels[i + 2]
+    const max = Math.max(pr, pg, pb)
+    const min = Math.min(pr, pg, pb)
+    const saturation = max === 0 ? 0 : (max - min) / max
+    const brightness = max / 255
+    const whitePenalty = brightness > 0.88 && saturation < 0.12 ? 0.18 : 1
+    const weight = alpha * (1 + saturation * 2.2) * whitePenalty
+
+    r += pr * weight
+    g += pg * weight
+    b += pb * weight
+    weightTotal += weight
+
+    const score = saturation * 1.8 + (1 - Math.abs(brightness - 0.56))
+    if (score > accentScore && brightness > 0.18) {
+      accentScore = score
+      accent = [pr, pg, pb]
+    }
+  }
+
+  if (!weightTotal) throw new Error('No visible pixels')
+
+  const average: [number, number, number] = [
+    Math.round(r / weightTotal),
+    Math.round(g / weightTotal),
+    Math.round(b / weightTotal)
+  ]
+  const background = normalizeBackground(average)
+  return {
+    background,
+    accent: normalizeAccent(accent),
+    foreground: relativeLuminance(background) > 0.42 ? [17, 24, 39] : [248, 250, 252]
+  }
+}
+
+function createFallbackPalette(seed: string): CoverPalette {
+  const hue = hashString(seed || 'sor') % 360
+  const background = hslToRgb(hue, 42, 22)
+  return {
+    background,
+    accent: hslToRgb((hue + 28) % 360, 72, 62),
+    foreground: [248, 250, 252]
+  }
+}
+
+function normalizeBackground(rgb: [number, number, number]): [number, number, number] {
+  const lum = relativeLuminance(rgb)
+  if (lum > 0.45) return mixRgb(rgb, [12, 18, 28], 0.58)
+  if (lum < 0.08) return mixRgb(rgb, [30, 38, 56], 0.32)
+  return mixRgb(rgb, [12, 18, 28], 0.28)
+}
+
+function normalizeAccent(rgb: [number, number, number]): [number, number, number] {
+  const lum = relativeLuminance(rgb)
+  if (lum < 0.22) return mixRgb(rgb, [255, 255, 255], 0.38)
+  if (lum > 0.78) return mixRgb(rgb, [24, 32, 45], 0.22)
+  return rgb
+}
+
+function relativeLuminance([r, g, b]: [number, number, number]) {
+  const linear = [r, g, b].map(value => {
+    const v = value / 255
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+}
+
+function mixRgb(
+  from: [number, number, number],
+  to: [number, number, number],
+  ratio: number
+): [number, number, number] {
+  return [
+    Math.round(from[0] * (1 - ratio) + to[0] * ratio),
+    Math.round(from[1] * (1 - ratio) + to[1] * ratio),
+    Math.round(from[2] * (1 - ratio) + to[2] * ratio)
+  ]
+}
+
+function hslToRgb(hue: number, saturation: number, lightness: number): [number, number, number] {
+  const s = saturation / 100
+  const l = lightness / 100
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1))
+  const m = l - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+
+  if (hue < 60) [r, g, b] = [c, x, 0]
+  else if (hue < 120) [r, g, b] = [x, c, 0]
+  else if (hue < 180) [r, g, b] = [0, c, x]
+  else if (hue < 240) [r, g, b] = [0, x, c]
+  else if (hue < 300) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ]
+}
+
+function hashString(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
 }
 </script>
 
 <style scoped>
+.lyric-viewer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 20%, rgb(var(--lyric-accent-rgb) / 0.26), transparent 34%),
+    radial-gradient(circle at 78% 14%, rgb(var(--lyric-accent-rgb) / 0.14), transparent 28%),
+    linear-gradient(135deg, rgb(var(--lyric-bg-rgb) / 0.98), color-mix(in oklab, rgb(var(--lyric-bg-rgb)) 72%, black));
+  color: rgb(var(--lyric-foreground-rgb));
+}
+
+.lyric-viewer::before {
+  content: '';
+  position: absolute;
+  inset: -12%;
+  z-index: -2;
+  background-image: var(--lyric-cover-image);
+  background-position: center;
+  background-size: cover;
+  filter: blur(42px) saturate(1.28);
+  opacity: 0.38;
+  transform: scale(1.08);
+}
+
+.lyric-viewer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.26), rgb(0 0 0 / 0.08) 42%, rgb(0 0 0 / 0.36)),
+    radial-gradient(circle at center, transparent, rgb(0 0 0 / 0.28));
+  pointer-events: none;
+}
+
 /* ========== 黑胶唱片样式 ========== */
 .vinyl-section {
   width: 50%; /* 占据50%宽度 */
-  height: 100vh; /* 固定高度为视口高度 */
+  height: var(--lyric-viewer-height, 100vh); /* 固定高度为视口高度 */
   flex-shrink: 0; /* 不被压缩 */
   display: flex;
   align-items: center;
@@ -297,10 +579,12 @@ function onLineClick(line: { time: number; text: string }) {
   position: relative;
   width: 100%;
   height: 100%;
-  background: linear-gradient(145deg, #ffffff, #f5f5f5);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.68)),
+    rgb(var(--lyric-accent-rgb) / 0.18);
   border-radius: 24px;
   padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1),
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.28), 0 8px 24px rgb(var(--lyric-accent-rgb) / 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
@@ -499,12 +783,54 @@ function onLineClick(line: { time: number; text: string }) {
 /* ========== 歌词区域样式 ========== */
 .lyrics-section {
   width: 50%; /* 占据50%宽度 */
-  height: 100vh; /* 固定高度为视口高度 */
+  height: var(--lyric-viewer-height, 100vh); /* 固定高度为视口高度 */
   flex-shrink: 0; /* 不被压缩 */
   overflow: hidden; /* 防止内容溢出到父容器外 */
   padding: 2rem; /* 添加内边距 */
   display: flex;
   flex-direction: column;
+  color: rgb(var(--lyric-foreground-rgb));
+}
+
+.lyric-viewer--embedded {
+  --lyric-viewer-height: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
+.lyric-viewer--embedded .vinyl-section,
+.lyric-viewer--embedded .lyrics-section {
+  height: auto;
+  min-height: 0;
+}
+
+.lyric-viewer--focus .vinyl-section,
+.lyric-viewer--compact .vinyl-section {
+  display: none;
+}
+
+.lyric-viewer--focus .lyrics-section {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+}
+
+.lyric-viewer--compact .lyrics-section {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.lyric-viewer--compact .lyric-line {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  padding: 0.45rem 0.75rem;
+}
+
+.lyric-viewer--compact .lyric-active {
+  font-size: 1.125rem;
 }
 
 /* 歌词容器 */
@@ -515,14 +841,22 @@ function onLineClick(line: { time: number; text: string }) {
   overflow-y: auto; /* 只在垂直方向滚动 */
   overflow-x: hidden; /* 隐藏水平滚动 */
   scroll-behavior: smooth;
-  padding: 0 1rem; /* 添加水平内边距 */
+  padding: max(34vh, 8rem) 1rem; /* 确保首尾歌词都能居中 */
+  mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
 }
 
 .lyric-line {
   font-size: 1.125rem; /* 18px */
   text-align: center;
   line-height: 1.8;
-  transition: all 0.3s ease;
+  color: rgb(var(--lyric-foreground-rgb) / 0.7);
+  text-shadow: 0 1px 16px rgb(0 0 0 / 0.28);
+  transition:
+    color 0.3s ease,
+    font-size 0.3s ease,
+    opacity 0.3s ease,
+    transform 0.3s ease;
   padding: 0.75rem 1rem; /* 增加行高和内边距 */
   word-wrap: break-word; /* 长单词换行 */
   overflow-wrap: break-word; /* 确保文本换行 */
@@ -534,9 +868,13 @@ function onLineClick(line: { time: number; text: string }) {
 }
 
 .lyric-active {
+  color: rgb(var(--lyric-accent-rgb));
   font-weight: 700;
   font-size: 1.5rem; /* 24px */
   opacity: 1 !important;
+  text-shadow:
+    0 1px 18px rgb(0 0 0 / 0.38),
+    0 0 34px rgb(var(--lyric-accent-rgb) / 0.36);
 }
 
 .hide-scrollbar {
@@ -685,7 +1023,7 @@ function onLineClick(line: { time: number; text: string }) {
 
   .lyrics-section {
     width: 100%;
-    height: 100vh; /* 移动端占满全屏高度 */
+    height: 100dvh; /* 移动端占满全屏高度 */
     padding: 1rem;
   }
 

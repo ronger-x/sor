@@ -151,9 +151,37 @@ docker ps --filter "name=sor"
 
 ## 配置说明
 
-- 环境变量：
-  - NUXT_MUSIC_API_URL：用于访问歌曲 API 的 Url（必须）
-  - NUXT_MUSIC_API_KEY：用于访问歌曲 API 的 Key（必须）
+### 必填环境变量
+
+- NUXT_MUSIC_API_URL：用于访问歌曲 API 的 Url（必须）
+- NUXT_MUSIC_API_KEY：用于访问歌曲 API 的 Key（必须）
+
+### 可选：云曲库上传
+
+上传入口位于 `/library` 页面，仅在配置了上传口令后启用。上传鉴权与上游 API 凭据相互独立——会话签名密钥 **不再**回退到 `NUXT_MUSIC_API_KEY`，必须显式配置。
+
+- NUXT_UPLOAD_PASSWORD：上传口令，设置后才会启用上传入口
+- NUXT_UPLOAD_SESSION_SECRET：上传会话 HMAC 签名密钥（必须显式配置）
+- NUXT_UPLOAD_SESSION_TTL_SECONDS：会话有效期（秒），默认 43200，最小 300
+- NUXT_UPLOAD_CARD_SECRET：临时上传卡签名密钥，留空时回退到会话密钥
+- NUXT_UPLOAD_CARD_TTL_SECONDS：临时上传卡有效期（秒），默认 3600，最小 60
+- NUXT_UPLOAD_PUBLIC_URL：分享链接与公众号回复中展示的上传入口地址，默认相对路径 `/library`
+
+鉴权方式有两种：直接输入上传口令，或使用公众号下发的临时上传卡（卡密经 HMAC 签名并带过期时间）。验证通过后浏览器获得一个 `httpOnly` + `secure` 的短时会话 Cookie。
+
+### 可选：微信公众号集成
+
+公众号可在用户回复「上传口令」等关键词时自动下发一张临时上传卡。回调接口为 `/api/wechat/message`，使用公众号 Token 校验请求签名。
+
+- NUXT_WECHAT_MP_TOKEN：公众号服务器配置的 Token，用于校验回调签名
+- NUXT_WECHAT_QR_URL：公众号二维码图片地址，留空则上传页显示占位图
+- NUXT_WECHAT_NAME：公众号显示名称
+
+### 分享
+
+每首歌可通过 `POST /api/songs/{songId}/share` 生成带 token 的分享链接，分享页位于 `/share/{token}`。生成时服务端会按当前请求的 Host/协议改写为本站可访问的链接。
+
+> 完整变量清单见 `.env.example`。
 
 ## 常见问题
 

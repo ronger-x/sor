@@ -41,6 +41,9 @@ importers:
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@5.9.3)(vue@3.5.25(typescript@5.9.3))
+      uqr:
+        specifier: ^0.1.2
+        version: 0.1.2
       zod:
         specifier: ^4.1.13
         version: 4.2.1

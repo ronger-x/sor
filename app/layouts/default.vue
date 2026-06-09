@@ -35,10 +35,7 @@
     </UHeader>
 
     <UMain
-      :class="[
-        'flex-1 flex flex-col w-full mx-auto',
-        route.path === '/lyric' ? 'p-0' : 'items-center justify-start px-2 py-6 md:pb-24 pb-20'
-      ]"
+      class="flex-1 flex flex-col w-full mx-auto items-center justify-start px-2 py-6 md:pb-24 pb-20"
     >
       <slot />
     </UMain>
@@ -46,6 +43,8 @@
     <UFooter class="w-full shadow z-30 px-0 py-0 sticky bottom-0">
       <PlayerBar />
     </UFooter>
+
+    <LyricOverlay />
   </UContainer>
 </template>
 
@@ -69,6 +68,31 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     label: '专辑',
     to: '/albums',
     active: route.path === '/albums'
+  },
+  {
+    label: '歌单',
+    to: '/playlists',
+    active: route.path === '/playlists'
+  },
+  {
+    label: '播放空间',
+    to: '/listen',
+    active: route.path === '/listen'
+  },
+  {
+    label: '云曲库',
+    to: '/library',
+    active: route.path === '/library'
+  },
+  {
+    label: '专题',
+    to: '/podcasts',
+    active: route.path === '/podcasts'
+  },
+  {
+    label: '视觉',
+    to: '/visuals',
+    active: route.path === '/visuals'
   }
 ])
 </script>
