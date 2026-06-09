@@ -659,13 +659,13 @@ import { onMounted, computed, ref } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 import { useMusicPreferencesStore } from '@/stores/preferences'
 import { useRouter } from 'vue-router'
+import { useSongFilters } from '@/composables/useSongFilters'
 import type {
   Album,
   Artist,
   DiscoveryChannel,
   DiscoveryChannels,
   Song,
-  SongSearchFilters,
   UserPlaylist
 } from '@/types'
 
@@ -685,11 +685,16 @@ const blockedSongs = computed(() => preferencesStore.blockedSongs)
 const blockedArtists = computed(() => preferencesStore.blockedArtists)
 const blockedAlbums = computed(() => preferencesStore.blockedAlbums)
 const hasBlockedContent = computed(() => preferencesStore.hasBlockedContent)
-const filterArtist = ref('')
-const filterAlbum = ref('')
-const excludeArtist = ref('')
-const excludeAlbum = ref('')
-const fastListMode = ref(false)
+const {
+  filterArtist,
+  filterAlbum,
+  excludeArtist,
+  excludeAlbum,
+  fastListMode,
+  activeFilters,
+  hasFilters,
+  clearFilters: resetFilters
+} = useSongFilters()
 const randomLoading = ref(false)
 const dailySongs = ref<Song[]>([])
 const chartSongs = ref<Song[]>([])
@@ -699,23 +704,6 @@ const artistOptions = ref<Artist[]>([])
 const albumOptions = ref<Album[]>([])
 const defaultAlbum = '/favicon.ico'
 const defaultAvatar = '/favicon.ico'
-
-const activeFilters = computed<SongSearchFilters>(() => ({
-  artist: filterArtist.value.trim() || undefined,
-  album: filterAlbum.value.trim() || undefined,
-  excludeArtist: excludeArtist.value.trim() || undefined,
-  excludeAlbum: excludeAlbum.value.trim() || undefined,
-  includeAssets: !fastListMode.value
-}))
-
-const hasFilters = computed(() =>
-  Boolean(
-    activeFilters.value.artist ||
-      activeFilters.value.album ||
-      activeFilters.value.excludeArtist ||
-      activeFilters.value.excludeAlbum
-  )
-)
 
 const artistQuickFilters = computed(() => artists.value.slice(0, 4))
 const albumQuickFilters = computed(() => albums.value.slice(0, 4))
@@ -892,11 +880,7 @@ const applyAlbum = async (albumName: string) => {
 }
 
 const clearFilters = async () => {
-  filterArtist.value = ''
-  filterAlbum.value = ''
-  excludeArtist.value = ''
-  excludeAlbum.value = ''
-  fastListMode.value = false
+  resetFilters()
   artistOptions.value = []
   albumOptions.value = []
   await reloadSongs()

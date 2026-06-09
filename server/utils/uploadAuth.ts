@@ -7,7 +7,9 @@ const CARD_PREFIX = 'SOR'
 function getUploadAuthConfig(event: H3Event) {
   const config = useRuntimeConfig(event)
   const password = String(process.env.SOR_UPLOAD_PASSWORD || process.env.NUXT_UPLOAD_PASSWORD || config.uploadPassword || '')
-  const secret = String(config.uploadSessionSecret || config.musicApiKey || '')
+  // Upload signing secret is decoupled from musicApiKey on purpose: the two
+  // belong to different trust domains and must be configured independently.
+  const secret = String(config.uploadSessionSecret || '')
   const cardSecret = String(
     process.env.SOR_UPLOAD_CARD_SECRET ||
       process.env.NUXT_UPLOAD_CARD_SECRET ||
@@ -22,7 +24,7 @@ function getUploadAuthConfig(event: H3Event) {
     60,
     Number(process.env.SOR_UPLOAD_CARD_TTL_SECONDS || process.env.NUXT_UPLOAD_CARD_TTL_SECONDS || config.uploadCardTtlSeconds || 3600)
   )
-  const publicUrl = String(process.env.SOR_UPLOAD_PUBLIC_URL || process.env.NUXT_UPLOAD_PUBLIC_URL || config.uploadPublicUrl || 'https://sor.orcl.cc/library')
+  const publicUrl = String(process.env.SOR_UPLOAD_PUBLIC_URL || process.env.NUXT_UPLOAD_PUBLIC_URL || config.uploadPublicUrl || '/library')
   return { password, secret, ttlSeconds, cardSecret, cardTtlSeconds, publicUrl }
 }
 

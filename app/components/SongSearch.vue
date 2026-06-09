@@ -114,7 +114,8 @@
 import { ref, computed, watch } from 'vue'
 import { useSongsStore } from '@/stores/songs'
 import { useMusicPreferencesStore } from '@/stores/preferences'
-import type { Song, SongSearchFilters } from '@/types'
+import { useSongFilters } from '@/composables/useSongFilters'
+import type { Song } from '@/types'
 
 const songsStore = useSongsStore()
 const preferencesStore = useMusicPreferencesStore()
@@ -124,30 +125,20 @@ const isOpen = ref(false)
 const searchTerm = ref('')
 const searchSongs = ref<Song[]>([])
 const searchLoading = ref(false)
-const filterArtist = ref('')
-const filterAlbum = ref('')
-const excludeArtist = ref('')
-const excludeAlbum = ref('')
-const fastListMode = ref(false)
+const {
+  filterArtist,
+  filterAlbum,
+  excludeArtist,
+  excludeAlbum,
+  fastListMode,
+  activeFilters,
+  hasFilters,
+  clearFilters
+} = useSongFilters()
 
 // Store 状态
 const currentPlaylistId = computed(() => songsStore.currentPlaylistId)
 const lyricsModal = computed(() => songsStore.lyricsModal)
-const activeFilters = computed<SongSearchFilters>(() => ({
-  artist: filterArtist.value.trim() || undefined,
-  album: filterAlbum.value.trim() || undefined,
-  excludeArtist: excludeArtist.value.trim() || undefined,
-  excludeAlbum: excludeAlbum.value.trim() || undefined,
-  includeAssets: !fastListMode.value
-}))
-const hasFilters = computed(() =>
-  Boolean(
-    activeFilters.value.artist ||
-      activeFilters.value.album ||
-      activeFilters.value.excludeArtist ||
-      activeFilters.value.excludeAlbum
-  )
-)
 
 // 将歌曲转换为 CommandPalette 所需的格式
 const songGroups = computed(() => {
@@ -206,14 +197,6 @@ const runSearch = async () => {
 
 watch(searchTerm, runSearch)
 watch([filterArtist, filterAlbum, excludeArtist, excludeAlbum, fastListMode], runSearch)
-
-const clearFilters = () => {
-  filterArtist.value = ''
-  filterAlbum.value = ''
-  excludeArtist.value = ''
-  excludeAlbum.value = ''
-  fastListMode.value = false
-}
 
 const isSongLiked = (song: Song) => preferencesStore.isSongLiked(song)
 

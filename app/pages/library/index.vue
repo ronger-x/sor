@@ -106,7 +106,7 @@
             <img
               v-if="wechatQrUrl"
               :src="wechatQrUrl"
-              :alt="`${wechatName} 公众号二维码`"
+              :alt="`${wechatName || '公众号'} 二维码`"
               class="wechat-qr-image"
             />
             <div v-else class="wechat-qr-placeholder">
@@ -115,7 +115,7 @@
             </div>
           </div>
           <div class="space-y-2 text-center">
-            <h3 class="text-lg font-bold">{{ wechatName }}</h3>
+            <h3 v-if="wechatName" class="text-lg font-bold">{{ wechatName }}</h3>
             <p class="text-sm text-muted">扫码关注后回复“上传口令”，公众号会自动发一张临时上传卡。</p>
           </div>
           <UButton icon="i-lucide-copy" variant="outline" block @click="copyWechatKeyword">
@@ -171,7 +171,7 @@ const uploadPassword = ref('')
 const uploadConfigured = ref(false)
 const uploadAuthenticated = ref(false)
 const wechatQrOpen = ref(false)
-const wechatName = ref('某科学的人')
+const wechatName = ref('')
 const wechatQrUrl = ref('')
 const keywordCopied = ref(false)
 const recentSongs = ref<Song[]>([])
@@ -250,7 +250,7 @@ const loadUploadSession = async () => {
     const status = await $fetch<UploadSessionStatus>('/api/upload-session')
     uploadConfigured.value = status.configured
     uploadAuthenticated.value = status.authenticated
-    wechatName.value = status.wechat?.name || '某科学的人'
+    wechatName.value = status.wechat?.name || ''
     wechatQrUrl.value = status.wechat?.qrUrl || ''
   } catch {
     uploadConfigured.value = false

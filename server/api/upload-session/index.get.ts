@@ -7,7 +7,7 @@ export default eventHandler((event: H3Event) => {
     configured: isUploadAuthConfigured(event),
     authenticated: hasUploadSession(event),
     wechat: {
-      name: String(process.env.SOR_WECHAT_NAME || process.env.NUXT_WECHAT_NAME || config.wechatName || '某科学的人'),
+      name: String(process.env.SOR_WECHAT_NAME || process.env.NUXT_WECHAT_NAME || config.wechatName || ''),
       qrUrl: String(process.env.SOR_WECHAT_QR_URL || process.env.NUXT_WECHAT_QR_URL || config.wechatQrUrl || '')
     }
   }

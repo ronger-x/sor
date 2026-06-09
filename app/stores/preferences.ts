@@ -1,64 +1,18 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type { MusicPreferencesPayload, Song, SongSearchFilters, UserPlaylist } from '@/types'
-
-const STORAGE_KEY = 'sor.music.preferences.v1'
-const MAX_RECENT_SONGS = 40
-const MAX_LIKED_SONGS = 200
-const MAX_BLOCKED_SONGS = 300
-
-type StoredPreferences = {
-  likedSongs?: Song[]
-  recentSongs?: Song[]
-  blockedSongs?: Song[]
-  blockedArtists?: string[]
-  blockedAlbums?: string[]
-  playlists?: UserPlaylist[]
-  profileId?: string
-  displayName?: string
-}
-
-function normalizeText(value?: string | null) {
-  return (value || '').trim().toLocaleLowerCase()
-}
-
-function songKey(song?: Pick<Song, 'id' | 'name' | 'artist' | 'album'> | null) {
-  if (!song) return ''
-  if (song.id !== undefined && song.id !== null) return `id:${song.id}`
-  return [song.name, song.artist, song.album].map(normalizeText).join('|')
-}
-
-function dedupeSongs(items: Song[], limit: number) {
-  const seen = new Set<string>()
-  const result: Song[] = []
-  for (const item of items) {
-    const key = songKey(item)
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    result.push(item)
-    if (result.length >= limit) break
-  }
-  return result
-}
-
-function dedupeText(items: string[]) {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const item of items) {
-    const cleaned = item.trim()
-    const key = normalizeText(cleaned)
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    result.push(cleaned)
-  }
-  return result
-}
-
-function textIncludes(value: string | undefined, needle: string | undefined) {
-  const normalizedNeedle = normalizeText(needle)
-  if (!normalizedNeedle) return false
-  return normalizeText(value).includes(normalizedNeedle)
-}
+import {
+  MAX_BLOCKED_SONGS,
+  MAX_LIKED_SONGS,
+  MAX_RECENT_SONGS,
+  STORAGE_KEY,
+  type StoredPreferences,
+  dedupeSongs,
+  dedupeText,
+  normalizeText,
+  songKey,
+  songMatchesBlock
+} from './_preferences/helpers'
 
 export const useMusicPreferencesStore = defineStore('music-preferences', () => {
   const profileId = ref('')
@@ -151,12 +105,14 @@ export const useMusicPreferencesStore = defineStore('music-preferences', () => {
   }
 
   function shouldHideSong(song: Song, filters: SongSearchFilters = {}) {
-    return (
-      isSongBlocked(song) ||
-      isArtistBlocked(song.artist) ||
-      isAlbumBlocked(song.album) ||
-      textIncludes(song.artist, filters.excludeArtist) ||
-      textIncludes(song.album, filters.excludeAlbum)
+    return songMatchesBlock(
+      song,
+      {
+        blockedSongKeys: blockedSongKeys.value,
+        blockedArtistKeys: blockedArtistKeys.value,
+        blockedAlbumKeys: blockedAlbumKeys.value
+      },
+      filters
     )
   }
 
